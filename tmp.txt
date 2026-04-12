@@ -1,0 +1,101 @@
+868-                            (userProfile?.firstName?.[0] || firebaseUser.displayName?.[0] || firebaseUser.email?.[0] || 'U').toUpperCase()
+869-                          )}
+870-                        </div>
+871-                        <div className="flex-1">
+872-                          <h3 className="font-bold text-xl text-zinc-900 dark:text-white">
+873-                            {userProfile?.firstName || userProfile?.lastName 
+874-                              ? `${userProfile.firstName} ${userProfile.lastName}`.trim() 
+875-                              : firebaseUser.displayName || 'User'}
+876-                          </h3>
+877-                          <p className="text-sm text-zinc-500">
+878-                            @{userProfile?.username || firebaseUser.email?.split('@')[0] || 'username'}
+879-                          </p>
+880-                        </div>
+881-                        <Edit2 className="w-5 h-5 text-zinc-300" />
+882-                      </button>
+883-                    ) : (
+884-                      <button 
+885-                        onClick={() => setView('auth')}
+886-                        className="w-full bg-white dark:bg-zinc-900 rounded-2xl p-4 flex items-center gap-4 mb-8 shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors text-left"
+887-                      >
+888-                        <div className="w-16 h-16 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+889-                          <User className="w-8 h-8" />
+890-                        </div>
+891-                        <div className="flex-1">
+892-                          <h3 className="font-bold text-xl text-zinc-900 dark:text-white">Sign In</h3>
+893-                          <p className="text-sm text-zinc-500">Sign in to sync your apps</p>
+894-                        </div>
+895-                        <ChevronRight className="w-5 h-5 text-zinc-300" />
+896-                      </button>
+897-                    )}
+898-
+899-                    {/* Admin Section */}
+900-                    {isAdmin && (
+901-                      <button 
+902-                        onClick={() => setView('admin')}
+903-                        className="w-full bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm mb-6 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+904-                      >
+905-                        <h3 className="font-bold text-lg">Admin Panel</h3>
+906-                        <ChevronRight className="w-5 h-5 text-zinc-300" />
+907-                      </button>
+908-                    )}
+909-
+910-                    {/* Menu Sections */}
+911-                    <div className="space-y-6">
+912-                      <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm">
+913-                        {[
+914-                          { icon: <Download className="w-5 h-5 text-blue-500" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).purchased, view: 'purchased' as const },
+915-                          { icon: <Bell className="w-5 h-5 text-red-500" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).subscriptions, view: 'subscriptions' as const },
+916-                        ].map((item, i) => (
+917-                          <button 
+918-                            key={i} 
+919-                            onClick={() => setView(item.view)}
+920-                            className="w-full flex items-center gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800 last:border-0"
+921-                          >
+922-                            {item.icon}
+923-                            <span className="flex-1 text-left font-medium text-zinc-900 dark:text-white">{item.label}</span>
+924-                            <ChevronRight className="w-4 h-4 text-zinc-300" />
+925-                          </button>
+926-                        ))}
+927-                      </div>
+928-
+929-                      <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm">
+930-                        {[
+931-                          { icon: <Settings className="w-5 h-5 text-zinc-500" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).settings, view: 'settings' as const },
+932-                          { icon: <ShieldCheck className="w-5 h-5 text-blue-400" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).privacy, view: 'privacy' as const },
+933-                          { icon: <HelpCircle className="w-5 h-5 text-zinc-400" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).support, view: 'support' as const },
+934-                        ].map((item, i) => (
+935-                          <button 
+936-                            key={i} 
+937-                            onClick={() => setView(item.view)}
+938-                            className="w-full flex items-center gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800 last:border-0"
+939-                          >
+940-                            {item.icon}
+941-                            <span className="flex-1 text-left font-medium text-zinc-900 dark:text-white">{item.label}</span>
+942-                            <ChevronRight className="w-4 h-4 text-zinc-300" />
+943-                          </button>
+944-                        ))}
+945-                      </div>
+946-
+947-                      {firebaseUser && (
+948-                        <button 
+949-                          onClick={async () => {
+950-                            try {
+951-                              await signOut(auth);
+952-                              toast.success('Signed out successfully');
+953-                              setView('main');
+954-                            } catch (error: any) {
+955-                              toast.error('Error signing out');
+956-                            }
+957-                          }}
+958-                          className="w-full py-4 text-red-500 font-semibold text-center bg-white dark:bg-zinc-900 rounded-2xl shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+959-                        >
+960-                          {(TRANSLATIONS[language] || TRANSLATIONS.English).signOut}
+961-                        </button>
+962-                      )}
+963-                    </div>
+964-                  </div>
+965-                </motion.div>
+966-              )}
+967-
+968:              {view === 'admin' && (

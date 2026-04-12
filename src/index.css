@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html {
+    @apply bg-white dark:bg-black;
+  }
+  body {
+    @apply font-sans antialiased transition-colors duration-500 bg-white dark:bg-black;
+  }
+  
+  * {
+    @apply border-zinc-200 dark:border-zinc-800;
+  }
+}
+
+.ios-blur {
+  @apply backdrop-blur-2xl bg-white/60 dark:bg-black/60 transition-colors duration-500;
+}
+
+.ios-card {
+  @apply rounded-2xl overflow-hidden transition-all duration-300 active:scale-[0.98];
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["firstName", "lastName", "username", "email"]
+    },
+    "App": {
+      "title": "App",
+      "description": "App information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "rating": { "type": "number" },
+        "iconUrl": { "type": "string" },
+        "isGame": { "type": "boolean" },
+        "developer": { "type": "string" },
+        "description": { "type": "string" },
+        "size": { "type": "string" },
+        "version": { "type": "string" },
+        "screenshots": { "type": "array", "items": { "type": "string" } },
+        "downloadUrl": { "type": "string" }
+      },
+      "required": ["name", "category", "rating", "iconUrl", "isGame", "developer", "description", "size", "version"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "System activity log entry",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" }
+      },
+      "required": ["type", "message", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/apps/{appId}": {
+      "schema": "App",
+      "description": "App documents"
+    },
+    "/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "System activity logs"
+    }
+  }
+}
