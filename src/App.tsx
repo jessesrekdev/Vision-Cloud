@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { auth, db, googleProvider, storage } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, where, setDoc, doc, getDoc, onSnapshot, updateDoc, increment, deleteDoc, orderBy, limit, getDocFromServer } from 'firebase/firestore';
@@ -28,6 +30,7 @@ import {
   HelpCircle,
   Cloud,
   ArrowLeft,
+  Package,
   Camera,
   Save,
   Edit2,
@@ -50,7 +53,13 @@ import {
   History,
   BarChart3,
   Upload,
-  Wrench
+  Wrench,
+  X,
+  ListFilter,
+  Zap,
+  Link2,
+  CloudAlert,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Cropper from 'react-easy-crop';
@@ -254,16 +263,15 @@ const SkeletonAppCard = () => (
 );
 
 const SkeletonFeaturedCard = () => (
-  <div className="relative w-full aspect-[4/5] rounded-3xl overflow-hidden shadow-xl bg-zinc-200 dark:bg-zinc-800 animate-pulse">
-    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
-    <div className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between gap-4">
-      <div className="flex-1 space-y-3">
-        <div className="h-3 bg-white/40 rounded w-1/4" />
-        <div className="h-8 bg-white/40 rounded w-3/4" />
-        <div className="h-4 bg-white/40 rounded w-full" />
-        <div className="h-4 bg-white/40 rounded w-5/6" />
+  <div className="relative w-full aspect-[16/10] sm:aspect-[21/9] rounded-3xl overflow-hidden shadow-xl bg-zinc-200 dark:bg-zinc-800 animate-pulse">
+    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+    <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 flex items-center gap-4 sm:gap-6">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/20 flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-white/20 rounded w-1/4" />
+        <div className="h-8 bg-white/20 rounded w-3/4" />
+        <div className="h-4 bg-white/20 rounded w-1/2" />
       </div>
-      <div className="w-20 h-10 bg-white/40 rounded-full flex-shrink-0" />
     </div>
   </div>
 );
@@ -287,10 +295,12 @@ const AppCard: React.FC<{ app: AppItem; isPurchased: boolean; downloadProgress?:
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-zinc-900 dark:text-white truncate">{app.name}</h3>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">{app.category}</p>
-        <div className="flex items-center gap-1 mt-1">
-          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-          <span className="text-[10px] font-medium text-zinc-500">{app.rating}</span>
-        </div>
+        {app.rating > 0 && (
+          <div className="flex items-center gap-1 mt-1">
+            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-medium text-zinc-500">{Number(app.rating).toFixed(1)}</span>
+          </div>
+        )}
       </div>
       {downloadProgress !== undefined ? (
         <div className="relative w-8 h-8 flex items-center justify-center">
@@ -339,77 +349,92 @@ const AppCard: React.FC<{ app: AppItem; isPurchased: boolean; downloadProgress?:
   );
 };
 
+const SkeletonPlayStoreCard = () => (
+  <div className="w-[140px] sm:w-[180px] space-y-3">
+    <div className="aspect-square bg-zinc-200 dark:bg-zinc-800 rounded-2xl animate-pulse shadow-sm" />
+    <div className="space-y-2">
+      <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-full animate-pulse" />
+      <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-2/3 animate-pulse" />
+      <div className="flex items-center gap-1">
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-8 animate-pulse" />
+        <div className="w-2.5 h-2.5 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
+
+const PlayStoreCard: React.FC<{ app: AppItem; onPreview: (app: AppItem) => void }> = ({ app, onPreview }) => {
+  if (!app) return null;
+
+  return (
+    <motion.div 
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => onPreview(app)}
+      className="w-[140px] sm:w-[180px] group cursor-pointer"
+    >
+      <div className="aspect-square rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-black/5 dark:border-white/5 overflow-hidden shadow-sm mb-3 relative">
+        {app.iconUrl ? (
+          <img src={app.iconUrl} alt={app.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl">📱</div>
+        )}
+      </div>
+      <div className="space-y-0.5">
+        <h3 className="font-medium text-[13px] sm:text-[15px] text-zinc-900 dark:text-white leading-tight line-clamp-2 group-hover:text-blue-500 transition-colors">
+          {app.name}
+        </h3>
+        <p className="text-[11px] sm:text-[13px] text-zinc-500 dark:text-zinc-400 truncate">
+          {app.developer}
+        </p>
+        {app.rating > 0 && (
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] sm:text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
+              {Number(app.rating).toFixed(1)}
+            </span>
+            <Star className="w-2.5 h-2.5 fill-current text-zinc-700 dark:text-zinc-300" />
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 const FeaturedCard: React.FC<{ app: AppItem; isPurchased: boolean; downloadProgress?: number; onGet: (app: AppItem) => void; onPreview: (app: AppItem) => void }> = ({ app, isPurchased, downloadProgress, onGet, onPreview }) => {
   if (!app) return null;
 
   return (
     <motion.div 
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.99 }}
       onClick={() => onPreview(app)}
-      className="relative w-full aspect-[4/5] rounded-3xl overflow-hidden shadow-xl group cursor-pointer"
+      className="relative w-full aspect-[16/10] sm:aspect-[21/9] rounded-3xl overflow-hidden shadow-xl group cursor-pointer"
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80 z-10" />
-      <div className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-10" />
+      <div className="absolute inset-0 group-hover:scale-105 transition-transform duration-700">
         {app.mainThumbnail || app.iconUrl ? (
           <img src={app.mainThumbnail || app.iconUrl} alt={app.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         ) : (
-          <div className="text-8xl">📱</div>
+          <div className="w-full h-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-8xl">📱</div>
         )}
       </div>
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-white z-20">
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex-1">
-            <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">{app.category}</p>
-            <h2 className="text-3xl font-bold leading-tight mb-2">{app.name}</h2>
-            <p className="text-sm opacity-90 line-clamp-2">{app.description}</p>
-          </div>
-          <div className="flex flex-col items-center gap-3">
-            {app.iconUrl && (
-              <img src={app.iconUrl} alt={`${app.name} icon`} className="w-12 h-12 rounded-xl shadow-md object-cover" referrerPolicy="no-referrer" />
-            )}
-            {downloadProgress !== undefined ? (
-              <div className="relative w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full">
-                <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-white/20"
-                    strokeWidth="3"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-white transition-all duration-300 ease-out"
-                    strokeDasharray={`${downloadProgress}, 100`}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-white rounded-sm" />
-                </div>
-              </div>
+      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white z-20">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0 border border-white/20">
+            {app.iconUrl ? (
+              <img src={app.iconUrl} alt={app.name} className="w-full h-full object-cover" />
             ) : (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isPurchased) {
-                    if (app.downloadUrl && app.downloadUrl !== '#') {
-                      window.open(app.downloadUrl, '_blank');
-                    } else {
-                      toast.info('Opening application...');
-                    }
-                  } else {
-                    onPreview(app);
-                  }
-                }}
-                className={`px-6 py-2 rounded-full font-bold text-sm uppercase tracking-wider backdrop-blur-md transition-all ${isPurchased ? 'bg-white text-zinc-900' : 'bg-white text-zinc-900 hover:scale-105 active:scale-95'}`}
-              >
-                {isPurchased ? 'Open' : 'Get'}
-              </button>
+              <div className="w-full h-full bg-white flex items-center justify-center text-3xl text-zinc-900">📱</div>
             )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-white/80 mb-1">{app.category}</p>
+            <h2 className="text-2xl sm:text-4xl font-bold leading-tight truncate mb-1">{app.name}</h2>
+            <p className="text-xs sm:text-sm text-white/70 line-clamp-1 max-w-xl">{app.description}</p>
+          </div>
+          <div className="hidden sm:block">
+            <button className="px-8 py-3 bg-white text-zinc-900 rounded-full font-bold text-sm hover:bg-zinc-100 transition-colors">
+              Check it out
+            </button>
           </div>
         </div>
       </div>
@@ -458,6 +483,22 @@ const PreviewPage: React.FC<{
   const [ratingBreakdown, setRatingBreakdown] = useState<Record<number, number>>({ 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 });
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && app && firebaseUser) {
+      const ratingId = `${firebaseUser.uid}_${app.id}`;
+      getDoc(doc(db, 'ratings', ratingId)).then(docSnap => {
+        if (docSnap.exists()) {
+          setUserRating(docSnap.data().rating as number);
+        } else {
+          setUserRating(0);
+        }
+      });
+    } else if (!isOpen) {
+      setUserRating(0);
+    }
+  }, [isOpen, app, firebaseUser]);
 
   useEffect(() => {
     if (isOpen && app) {
@@ -515,6 +556,16 @@ const PreviewPage: React.FC<{
           rating,
           createdAt: Date.now()
         });
+        
+        // Sync average rating to app document
+        const ratingsQ = query(collection(db, 'ratings'), where('appId', '==', app.id));
+        const ratingsSnap = await getDocs(ratingsQ);
+        const ratings = ratingsSnap.docs.map(doc => doc.data().rating as number);
+        const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+        await updateDoc(doc(db, 'apps', app.id), {
+          rating: Number(avg.toFixed(1)),
+          ratingCount: ratings.length
+        });
       }
     }, 3000);
     setUndoTimeout(timeout);
@@ -552,6 +603,16 @@ const PreviewPage: React.FC<{
       userId: firebaseUser.uid,
       rating,
       createdAt: Date.now()
+    });
+
+    // Sync average rating to app document
+    const ratingsQ = query(collection(db, 'ratings'), where('appId', '==', app!.id));
+    const ratingsSnap = await getDocs(ratingsQ);
+    const ratingsList = ratingsSnap.docs.map(doc => doc.data().rating as number);
+    const avgRating = ratingsList.reduce((a, b) => a + b, 0) / ratingsList.length;
+    await updateDoc(doc(db, 'apps', app!.id), {
+      rating: Number(avgRating.toFixed(1)),
+      ratingCount: ratingsList.length
     });
 
     setNewComment('');
@@ -636,7 +697,7 @@ const PreviewPage: React.FC<{
             <div className="w-10" />
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-smooth">
             <div className="max-w-2xl mx-auto px-6 py-8 space-y-10">
               {/* App Identity */}
               <div className="flex gap-6 items-center">
@@ -699,10 +760,15 @@ const PreviewPage: React.FC<{
                             toast.info('Opening application...');
                           }
                         } else {
-                          onGet(app);
+                          // Smooth scroll to bottom on first click
+                          scrollRef.current?.scrollTo({
+                            top: scrollRef.current.scrollHeight,
+                            behavior: 'smooth'
+                          });
+                          toast.info('Scroll down to confirm installation');
                         }
                       }}
-                      className={`px-8 py-2.5 rounded-full font-bold text-sm uppercase tracking-wider transition-all ${isPurchased ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
+                      className={`px-8 py-2.5 rounded-full font-bold text-sm uppercase tracking-wider transition-all ${isPurchased ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 active:scale-95'}`}
                     >
                       {isPurchased ? 'Open' : 'Get'}
                     </button>
@@ -714,7 +780,7 @@ const PreviewPage: React.FC<{
               <div className="flex items-center justify-between border-y border-zinc-100 dark:border-zinc-900 py-6">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1 text-zinc-900 dark:text-white font-bold text-lg">
-                    {averageRating} <Star className="w-4 h-4 fill-current" />
+                    {averageRating > 0 ? averageRating : '--'} <Star className="w-4 h-4 fill-current" />
                   </div>
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Rating</p>
                 </div>
@@ -757,16 +823,17 @@ const PreviewPage: React.FC<{
               {/* Description */}
               <div className="space-y-4">
                 <h3 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Description</h3>
-                <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-lg">
-                  {app.description}
-                </p>
+                <div className="text-zinc-600 dark:text-zinc-400 leading-relaxed text-lg prose dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {app.description}
+                  </ReactMarkdown>
+                </div>
               </div>
 
               {/* Ratings & Reviews */}
               <div className="space-y-6 pt-6 border-t border-zinc-100 dark:border-zinc-900">
                 <div className="flex items-end justify-between">
                   <h3 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Ratings & Reviews</h3>
-                  <button className="text-blue-500 font-medium">See All</button>
                 </div>
                 
                 <div className="space-y-4">
@@ -782,7 +849,7 @@ const PreviewPage: React.FC<{
 
                 <div className="flex items-center gap-6">
                   <div className="text-center">
-                    <div className="text-6xl font-bold text-zinc-900 dark:text-white tracking-tighter">{averageRating}</div>
+                    <div className="text-6xl font-bold text-zinc-900 dark:text-white tracking-tighter">{averageRating > 0 ? averageRating : '--'}</div>
                     <p className="text-sm font-bold text-zinc-400 mt-1">out of 5</p>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase mt-2">{ratingCount} Ratings</p>
                   </div>
@@ -882,9 +949,9 @@ const PreviewPage: React.FC<{
                           </div>
                           <div className="flex items-center gap-3 px-2">
                             <button onClick={() => { if (!firebaseUser) { onClose(); setActiveTab('Today'); setView('auth'); setIsProfileOpen(true); } else { setReplyingTo(review.id); } }} className="text-xs font-bold text-zinc-500 hover:text-blue-500">Reply</button>
-                            {(firebaseUser?.uid === review.userId || isAdmin) && (
+                            {firebaseUser?.uid === review.userId || isAdmin ? (
                               <button onClick={() => setDeletingId(review.id)} className="text-xs font-bold text-red-400 hover:text-red-500">Delete</button>
-                            )}
+                            ) : null}
                             <span className="text-xs text-zinc-400">{new Date(review.createdAt).toLocaleDateString()}</span>
                           </div>
                           
@@ -914,9 +981,9 @@ const PreviewPage: React.FC<{
                               <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-3 rounded-2xl">
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="font-bold text-xs text-zinc-900 dark:text-white">{reply.userName}</p>
-                                  {(firebaseUser?.uid === reply.userId || isAdmin) && (
+                                  {firebaseUser?.uid === reply.userId || isAdmin ? (
                                     <button onClick={() => setDeletingId(reply.id)} className="text-[10px] font-bold text-red-400 hover:text-red-500">Delete</button>
-                                  )}
+                                  ) : null}
                                 </div>
                                 <p className="text-xs text-zinc-700 dark:text-zinc-300">{reply.comment}</p>
                               </div>
@@ -953,7 +1020,7 @@ const PreviewPage: React.FC<{
             </div>
           </div>
           {/* Sticky Get Button */}
-          <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-900">
+          <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-900 shadow-[0_-10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.2)]">
             {downloadProgress !== undefined ? (
               <div className="w-full py-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center gap-3">
                 <div className="relative w-6 h-6 flex items-center justify-center">
@@ -976,24 +1043,857 @@ const PreviewPage: React.FC<{
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-sm" />
+                    <div className="w-2 h-2 bg-blue-500 rounded-sm" />
                   </div>
                 </div>
-                <span className="font-bold text-lg text-blue-500 uppercase tracking-wider">Downloading...</span>
+                <span className="text-sm font-bold text-blue-500">Downloading... {Math.round(downloadProgress)}%</span>
               </div>
             ) : (
-              <button 
-                onClick={() => !isPurchased && onGet(app)}
-                className={`w-full py-4 rounded-2xl font-bold text-lg uppercase tracking-wider transition-all ${isPurchased ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400' : 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
+              <motion.button 
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  if (isPurchased) {
+                    if (app.downloadUrl && app.downloadUrl !== '#') {
+                      window.open(app.downloadUrl, '_blank');
+                    } else {
+                      toast.info('Opening application...');
+                    }
+                  } else {
+                    // Start download and scroll back up
+                    onGet(app);
+                    scrollRef.current?.scrollTo({
+                      top: 0,
+                      behavior: 'smooth'
+                    });
+                  }
+                }}
+                className="w-full py-4 rounded-2xl bg-blue-500 text-white font-bold shadow-lg shadow-blue-500/25 active:bg-blue-600 transition-colors"
               >
-                {isPurchased ? 'Open' : 'Get'}
-              </button>
+                {isPurchased ? 'Open' : 'Get App'}
+              </motion.button>
             )}
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
+};
+
+const SystemPortal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  apps: AppItem[];
+  setApps: React.Dispatch<React.SetStateAction<AppItem[]>>;
+  isTodayEnabled: boolean;
+  setIsTodayEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  todayApps: string[];
+  setTodayApps: React.Dispatch<React.SetStateAction<string[]>>;
+  storeName: string;
+  setStoreName: React.Dispatch<React.SetStateAction<string>>;
+  isMaintenanceMode: boolean;
+  setIsMaintenanceMode: React.Dispatch<React.SetStateAction<boolean>>;
+  totalUsers: number;
+  allUsers: any[];
+  isLoadingUsers: boolean;
+  activities: any[];
+  firebaseUser: FirebaseUser | null;
+  userProfile: UserProfile | null;
+  logActivity: (type: string, message: string) => Promise<void>;
+  fixPublisherData: () => Promise<void>;
+  clearActivities: () => Promise<void>;
+  resetDatabase: () => Promise<void>;
+  seedSampleData: () => Promise<void>;
+  uploadApp: (appData: any) => Promise<void>;
+  adminTab: 'dashboard' | 'publish' | 'manage' | 'users' | 'settings' | 'today';
+  setAdminTab: React.Dispatch<React.SetStateAction<'dashboard' | 'publish' | 'manage' | 'users' | 'settings' | 'today'>>;
+  uploadName: string;
+  setUploadName: React.Dispatch<React.SetStateAction<string>>;
+  uploadIsGame: boolean;
+  setUploadIsGame: React.Dispatch<React.SetStateAction<boolean>>;
+  uploadCategory: string;
+  setUploadCategory: React.Dispatch<React.SetStateAction<string>>;
+  uploadIconUrl: string;
+  setUploadIconUrl: React.Dispatch<React.SetStateAction<string>>;
+  uploadMainThumbnail: string;
+  setUploadMainThumbnail: React.Dispatch<React.SetStateAction<string>>;
+  uploadDescription: string;
+  setUploadDescription: React.Dispatch<React.SetStateAction<string>>;
+  uploadSize: string;
+  setUploadSize: React.Dispatch<React.SetStateAction<string>>;
+  uploadVersion: string;
+  setUploadVersion: React.Dispatch<React.SetStateAction<string>>;
+  uploadDownloadUrl: string;
+  setUploadDownloadUrl: React.Dispatch<React.SetStateAction<string>>;
+  uploadScreenshots: string[];
+  setUploadScreenshots: React.Dispatch<React.SetStateAction<string[]>>;
+  uploadStatus: 'draft' | 'published';
+  setUploadStatus: React.Dispatch<React.SetStateAction<'draft' | 'published'>>;
+  editingApp: AppItem | null;
+  setEditingApp: React.Dispatch<React.SetStateAction<AppItem | null>>;
+  expandedAppId: string | null;
+  setExpandedAppId: React.Dispatch<React.SetStateAction<string | null>>;
+  adminSearchQuery: string;
+  setAdminSearchQuery: React.Dispatch<React.SetStateAction<string>>;
+  adminFilterStatus: 'all' | 'published' | 'draft' | 'archived';
+  setAdminFilterStatus: React.Dispatch<React.SetStateAction<'all' | 'published' | 'draft' | 'archived'>>;
+  appToDelete: AppItem | null;
+  setAppToDelete: React.Dispatch<React.SetStateAction<AppItem | null>>;
+  isResettingDatabase: boolean;
+}> = ({
+  isOpen, onClose, apps, setApps, isTodayEnabled, setIsTodayEnabled, todayApps, setTodayApps,
+  storeName, setStoreName, isMaintenanceMode, setIsMaintenanceMode,
+  totalUsers, allUsers, isLoadingUsers, activities, firebaseUser, userProfile,
+  logActivity, fixPublisherData, clearActivities, resetDatabase, seedSampleData, uploadApp,
+  adminTab, setAdminTab, uploadName, setUploadName, uploadIsGame, setUploadIsGame,
+  uploadCategory, setUploadCategory, uploadIconUrl, setUploadIconUrl, uploadMainThumbnail, setUploadMainThumbnail,
+  uploadDescription, setUploadDescription, uploadSize, setUploadSize, uploadVersion, setUploadVersion,
+  uploadDownloadUrl, setUploadDownloadUrl, uploadScreenshots, setUploadScreenshots,
+  uploadStatus, setUploadStatus, editingApp, setEditingApp, expandedAppId, setExpandedAppId,
+  adminSearchQuery, setAdminSearchQuery, adminFilterStatus, setAdminFilterStatus,
+  appToDelete, setAppToDelete, isResettingDatabase
+}) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 100 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+          className="fixed inset-0 z-[110] bg-zinc-50 dark:bg-black overflow-hidden flex flex-col font-sans"
+        >
+          <div className="px-6 py-5 md:px-10 md:py-8 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-900 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl sticky top-0 z-20">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-900 dark:bg-white flex items-center justify-center text-white dark:text-zinc-900 shadow-lg shadow-black/10 transition-transform hover:scale-105 active:scale-95">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">System Portal</h2>
+                <p className="text-[10px] font-extrabold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-blue-500 animate-pulse"></span>
+                  Admin Control Center
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={onClose}
+              className="w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-all hover:rotate-90 active:scale-90"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+            <div className="max-w-7xl mx-auto px-6 py-10 md:px-10 md:py-16 space-y-12">
+              
+              {/* Horizontal Navigation */}
+              <div className="flex items-center justify-center">
+                <div className="flex gap-1 p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-[28px] border border-zinc-200/50 dark:border-zinc-800/50 overflow-x-auto no-scrollbar max-w-full">
+                  {[
+                    { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
+                    { id: 'publish', label: 'Deploy', icon: PlusCircle },
+                    { id: 'manage', label: 'Modules', icon: ListFilter },
+                    { id: 'users', label: 'Identity', icon: Users },
+                    { id: 'today', label: 'Stream', icon: Star },
+                    { id: 'settings', label: 'Nodes', icon: Settings },
+                  ].map((tab) => (
+                    <button 
+                      key={tab.id}
+                      onClick={() => setAdminTab(tab.id as any)} 
+                      className={`relative flex items-center gap-2.5 px-6 py-3.5 rounded-[22px] font-bold text-sm transition-all whitespace-nowrap group ${
+                        adminTab === tab.id 
+                          ? 'bg-white dark:bg-zinc-800 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.1)] text-zinc-900 dark:text-white' 
+                          : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      <tab.icon className={`w-4 h-4 transition-colors ${adminTab === tab.id ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`} />
+                      {tab.label}
+                      {adminTab === tab.id && (
+                        <motion.div 
+                          layoutId="activeTabIndicator"
+                          className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {adminTab === 'dashboard' && (
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Ecosystem Pulse</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Real-time heuristics and network topology.</p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-5 py-2.5 rounded-[20px] border border-zinc-100 dark:border-zinc-800 shadow-sm transition-transform hover:translate-y-[-2px]">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">Network Operational</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                  {[
+                    { label: 'Deployed Apps', val: apps.length, icon: Package, color: 'blue', trend: '+12%', sub: 'this week' },
+                    { label: 'Store Capacity', val: apps.reduce((acc, app) => acc + (app.downloads || 0), 0).toLocaleString(), icon: ArrowDownToLine, color: 'green', trend: 'Active', sub: 'Nodes' },
+                    { label: 'Active Identity', val: totalUsers, icon: Users, color: 'purple', trend: 'Global', sub: 'Registry' }
+                  ].map((metric) => (
+                    <div key={metric.label} className="group bg-white dark:bg-zinc-900 p-8 rounded-[40px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 transition-all hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)] hover:border-zinc-200 dark:hover:border-zinc-700">
+                      <div className="flex items-center justify-between mb-8">
+                        <div className={`w-16 h-16 rounded-[24px] bg-${metric.color}-50 dark:bg-${metric.color}-900/20 flex items-center justify-center text-${metric.color}-600 dark:text-${metric.color}-400 group-hover:scale-110 transition-transform duration-500`}>
+                          <metric.icon className="w-7 h-7" />
+                        </div>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-3.5 py-1.5 rounded-full bg-${metric.color}-500/10 text-${metric.color}-600`}>{metric.trend} {metric.sub}</span>
+                      </div>
+                      <p className="text-sm text-zinc-400 font-extrabold uppercase tracking-[0.15em] mb-2">{metric.label}</p>
+                      <h4 className="text-5xl font-black text-zinc-900 dark:text-white tabular-nums tracking-tighter">{metric.val}</h4>
+                      
+                      {metric.label === 'Deployed Apps' && (
+                        <div className="mt-8 flex gap-2">
+                          <button onClick={fixPublisherData} className="flex-1 py-3.5 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-600 dark:text-zinc-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all border border-zinc-100 dark:border-zinc-800 flex items-center justify-center gap-2">
+                            <Wrench className="w-3.5 h-3.5" />
+                            Sync Meta
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white dark:bg-zinc-900 px-8 py-10 rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                    <div className="flex items-center justify-between mb-10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                          <History className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">System Activity</h4>
+                          <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Live Event Stream</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={clearActivities}
+                        className="text-[10px] font-black text-zinc-400 hover:text-red-500 transition-colors uppercase tracking-[0.2em] px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full border border-transparent hover:border-zinc-100 dark:hover:border-zinc-800"
+                      >
+                        Purge Logs
+                      </button>
+                    </div>
+                    <div className="space-y-6">
+                      {activities.length > 0 ? activities.map(activity => (
+                        <div key={activity.id} className="flex gap-5 items-start group">
+                          <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105 duration-300 ${activity.type === 'app_published' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                            {activity.type === 'app_published' ? <PlusCircle className="w-5 h-5" /> : <Trash2 className="w-5 h-5" />}
+                          </div>
+                          <div className="flex-1 min-w-0 pt-1.5">
+                            <p className="text-sm text-zinc-900 dark:text-white font-bold leading-relaxed">{activity.message}</p>
+                            <div className="flex items-center gap-3 mt-2.5">
+                              <span className="text-[10px] font-black text-zinc-400 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">@{activity.userName}</span>
+                              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="text-center py-16">
+                          <div className="w-20 h-20 bg-zinc-50 dark:bg-zinc-800/30 rounded-[32px] flex items-center justify-center mx-auto mb-6 border border-zinc-100 dark:border-zinc-800 shadow-inner">
+                            <Activity className="w-10 h-10 text-zinc-200 dark:text-zinc-700" />
+                          </div>
+                          <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.2em]">Silence in the Ether</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-zinc-900 px-8 py-10 rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                        <Zap className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">Node Topography</h4>
+                        <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Real-time Latency Check</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Cloud Database', status: 'Nominal', color: 'blue' },
+                        { label: 'Visual Engine', status: 'Maximum', color: 'green' },
+                        { label: 'Security Node', status: 'Secured', color: 'purple' },
+                        { label: 'Auth Gateway', status: 'Synced', color: 'orange' },
+                      ].map(svc => (
+                        <div key={svc.label} className="flex items-center justify-between p-5 rounded-[24px] bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-100/50 dark:border-zinc-800/50 group transition-all hover:bg-white dark:hover:bg-zinc-800 hover:shadow-lg hover:shadow-black/5">
+                          <span className="text-sm font-extrabold text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">{svc.label}</span>
+                          <div className="flex items-center gap-3">
+                             <div className="w-2 h-2 rounded-full bg-green-500 animate-[pulse_2s_infinite]" />
+                             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{svc.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {adminTab === 'publish' && (
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Deploy Module</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Inject new artifacts into the global ecosystem.</p>
+                  </div>
+                  <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 px-6 py-3 rounded-[24px] border border-zinc-100 dark:border-zinc-800 shadow-sm">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Visibility Context</span>
+                    <select value={uploadStatus} onChange={(e) => setUploadStatus(e.target.value as any)} className="bg-transparent text-sm font-black text-zinc-900 dark:text-white outline-none cursor-pointer">
+                      <option value="published">Production</option>
+                      <option value="draft">Sandbox</option>
+                    </select>
+                  </div>
+                </div>
+ 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                  <div className="lg:col-span-2 space-y-10">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 space-y-10">
+                      <div className="space-y-8">
+                        <div>
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-4 block ml-2">Module Identity</label>
+                          <input type="text" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Friendly Application Name" className="w-full text-3xl font-black p-8 rounded-[32px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" />
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="p-2.5 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-[28px] flex gap-2 border border-zinc-200/50 dark:border-zinc-700/50">
+                             <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${!uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Software</button>
+                             <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Entertainment</button>
+                           </div>
+                           <select 
+                            value={uploadCategory} 
+                            onChange={(e) => setUploadCategory(e.target.value)} 
+                            className="w-full p-5 rounded-[28px] font-bold bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all cursor-pointer"
+                          >
+                            <option value="" disabled>Compute Domain</option>
+                            {['Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+ 
+                      <div className="space-y-8 pt-10 border-t border-zinc-100 dark:border-zinc-900">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] block ml-2">Data Source Protocol</label>
+                        <div className="relative group">
+                          <div className="absolute left-7 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors">
+                            <Link2 className="w-5 h-5" />
+                          </div>
+                          <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://cdn.resource.node/artifact.zip" className="w-full pl-16 p-6 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:font-medium placeholder:text-zinc-400" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                          <input type="text" value={uploadSize} onChange={(e) => setUploadSize(e.target.value)} placeholder="Payload size (45.2 MB)" className="w-full p-5 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:text-zinc-400" />
+                          <input type="text" value={uploadVersion} onChange={(e) => setUploadVersion(e.target.value)} placeholder="Revision id (v1.0.0)" className="w-full p-5 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:text-zinc-400" />
+                        </div>
+                      </div>
+ 
+                      <div className="space-y-6 pt-10 border-t border-zinc-100 dark:border-zinc-900">
+                        <div className="flex items-center justify-between px-2">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Release Documentation</label>
+                          <span className="text-[9px] font-black text-blue-500 border border-blue-500/20 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full">MD Standard V2</span>
+                        </div>
+                        <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Construct detailed module description here..." rows={10} className="w-full p-8 rounded-[36px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-medium resize-none leading-relaxed placeholder:text-zinc-400" />
+                      </div>
+                    </div>
+                  </div>
+ 
+                  <div className="space-y-10">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-8 block text-center">Visual Assets</label>
+                      <div className="space-y-10">
+                        <div className="space-y-4">
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Symbol Identity</p>
+                          <div className="flex justify-center">
+                            <ImageUploader onUpload={setUploadIconUrl} currentIconUrl={uploadIconUrl} />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Hero Frame</p>
+                          <div className="flex justify-center">
+                            <ImageUploader onUpload={setUploadMainThumbnail} currentIconUrl={uploadMainThumbnail} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+ 
+                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-6 block text-center">Environment Captures</label>
+                      <ScreenshotUploader onUpload={setUploadScreenshots} />
+                    </div>
+ 
+                    <button 
+                      onClick={async () => {
+                        if (!uploadName || !uploadCategory || !uploadIconUrl || !uploadDownloadUrl) {
+                          toast.error('Identity collision: missing required metadata');
+                          return;
+                        }
+                        try {
+                          await uploadApp({ 
+                            name: uploadName, 
+                            category: uploadCategory, 
+                            rating: 0, 
+                            iconUrl: uploadIconUrl, 
+                            mainThumbnail: uploadMainThumbnail,
+                            isGame: uploadIsGame, 
+                            developer: `${userProfile?.firstName} ${userProfile?.lastName}`, 
+                            description: uploadDescription,
+                            size: uploadSize || '0.0 KB',
+                            version: uploadVersion || '1.0.0',
+                            downloadUrl: uploadDownloadUrl,
+                            screenshots: uploadScreenshots,
+                            status: uploadStatus
+                          });
+                          toast.success('Module successfully deployed to production');
+                          logActivity('app_published', `Deployed: ${uploadName}`);
+                          setUploadName(''); setUploadCategory(''); setUploadIconUrl(''); setUploadMainThumbnail('');
+                          setUploadDescription(''); setUploadSize(''); setUploadVersion(''); setUploadDownloadUrl('');
+                          setUploadScreenshots([]); setUploadStatus('published');
+                          onClose();
+                        } catch (error) {
+                          toast.error('Deployment failure: Internal Node Error');
+                        }
+                      }} 
+                      className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[36px] font-black text-lg uppercase tracking-[0.15em] shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4 group"
+                    >
+                      <Zap className="w-6 h-6 fill-current group-hover:animate-pulse" />
+                      Deploy Module
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {adminTab === 'manage' && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h3 className="text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Module Maintenance</h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">Manage existing artifacts across the network.</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="relative group min-w-[240px]">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
+                      <input 
+                        type="text" 
+                        placeholder="Scan for modules..." 
+                        value={adminSearchQuery}
+                        onChange={(e) => setAdminSearchQuery(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-bold"
+                      />
+                    </div>
+                    <select 
+                      value={adminFilterStatus}
+                      onChange={(e) => setAdminFilterStatus(e.target.value as any)}
+                      className="px-6 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-black text-xs uppercase"
+                    >
+                      <option value="all">Network Status</option>
+                      <option value="published">Production</option>
+                      <option value="draft">Sandbox</option>
+                      <option value="archived">Legacy</option>
+                    </select>
+                  </div>
+                </div>
+
+                {editingApp ? (
+                  <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-zinc-900 p-8 rounded-[40px] shadow-2xl border border-zinc-200/50 dark:border-zinc-800/50 space-y-8">
+                     <div className="flex items-center justify-between">
+                       <h4 className="text-2xl font-black">Configure Revision: {editingApp.name}</h4>
+                       <button onClick={() => setEditingApp(null)} className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500"><X className="w-5 h-5" /></button>
+                     </div>
+
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                           <div>
+                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Application Icon</label>
+                             <div className="flex gap-4">
+                               <div className="w-24 h-24 rounded-3xl bg-zinc-50 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                                 {editingApp.iconUrl ? <img src={editingApp.iconUrl} className="w-full h-full object-cover" /> : null}
+                               </div>
+                               <input type="text" value={editingApp.iconUrl} onChange={(e) => setEditingApp({...editingApp, iconUrl: e.target.value})} className="flex-1 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold self-end" placeholder="Icon URL" />
+                             </div>
+                           </div>
+                           <div>
+                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Identity Title</label>
+                             <input type="text" value={editingApp.name} onChange={(e) => setEditingApp({...editingApp, name: e.target.value})} className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold" />
+                           </div>
+                        </div>
+                        <div className="space-y-6">
+                           <div>
+                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Hero Content</label>
+                             <div className="aspect-video rounded-3xl bg-zinc-50 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                               {editingApp.mainThumbnail ? <img src={editingApp.mainThumbnail} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-300 font-bold uppercase text-[10px]">No Thumbnail</div>}
+                             </div>
+                             <input type="text" value={editingApp.mainThumbnail || ''} onChange={(e) => setEditingApp({...editingApp, mainThumbnail: e.target.value})} className="w-full mt-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold" placeholder="Hero URL" />
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[
+                          { label: 'Compute Domain', val: editingApp.category, key: 'category' },
+                          { label: 'Artifact Size', val: editingApp.size, key: 'size' },
+                          { label: 'Revision ID', val: editingApp.version, key: 'version' },
+                          { label: 'Status', val: editingApp.status, key: 'status', type: 'select' },
+                        ].map(field => (
+                          <div key={field.key}>
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1 block px-2">{field.label}</label>
+                            {field.type === 'select' ? (
+                              <select value={editingApp.status} onChange={(e) => setEditingApp({...editingApp, status: e.target.value as any})} className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 font-bold outline-none border-none">
+                                <option value="published">Production</option>
+                                <option value="draft">Sandbox</option>
+                                <option value="archived">Legacy</option>
+                              </select>
+                            ) : (
+                              <input type="text" value={field.val} onChange={(e) => setEditingApp({...editingApp, [field.key]: e.target.value})} className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 font-bold outline-none border-none" />
+                            )}
+                          </div>
+                        ))}
+                     </div>
+
+                     <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800">
+                        <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block">Captures Ecosystem</label>
+                        <ScreenshotUploader initialScreenshots={editingApp.screenshots || []} onUpload={(urls) => setEditingApp({...editingApp, screenshots: urls})} />
+                     </div>
+
+                     <div className="flex gap-4 pt-4">
+                        <button onClick={() => setEditingApp(null)} className="flex-1 py-5 rounded-[24px] bg-zinc-100 dark:bg-zinc-800 font-black text-zinc-500 uppercase tracking-widest hover:bg-zinc-200 transition-all">Abort Config</button>
+                        <button 
+                          onClick={async () => {
+                            await updateDoc(doc(db, 'apps', editingApp.id), { ...editingApp });
+                            toast.success('Module successfully reconfiguration');
+                            logActivity('app_updated', `Reconfigured: ${editingApp.name}`);
+                            setEditingApp(null);
+                          }} 
+                          className="flex-1 py-5 rounded-[24px] bg-blue-600 text-white font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                        >
+                          Commit Changes
+                        </button>
+                     </div>
+                  </motion.div>
+                ) : (
+                  <div className="space-y-4">
+                    {appToDelete && (
+                      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 p-6 rounded-[32px] flex items-center justify-between mb-6 shadow-lg shadow-red-500/5">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-900/50 flex items-center justify-center text-red-500 shadow-inner">
+                             <Trash2 className="w-6 h-6" />
+                           </div>
+                           <div>
+                             <h4 className="font-black text-red-800 dark:text-red-400">Decommission Artifact: {appToDelete.name}?</h4>
+                             <p className="text-sm font-medium text-red-600 dark:text-red-300">This action will permanently purge the binary record.</p>
+                           </div>
+                        </div>
+                        <div className="flex gap-3">
+                          <button onClick={() => setAppToDelete(null)} className="px-6 py-3 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm">Cancel</button>
+                          <button onClick={async () => {
+                            try {
+                              await deleteDoc(doc(db, 'apps', appToDelete.id));
+                              toast.success('Module purged from existence');
+                              logActivity('app_deleted', `Purged: ${appToDelete.name}`);
+                              setAppToDelete(null);
+                            } catch (error) {
+                              toast.error('Purge failure: Logic Integrity Error');
+                            }
+                          }} className="px-6 py-3 bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20">Purge Record</button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {apps.filter(app => {
+                        const matchesSearch = app.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || app.category.toLowerCase().includes(adminSearchQuery.toLowerCase());
+                        const matchesStatus = adminFilterStatus === 'all' || app.status === adminFilterStatus;
+                        return matchesSearch && matchesStatus;
+                      }).map(app => (
+                        <div key={app.id} className="group bg-white dark:bg-zinc-900 rounded-[32px] shadow-sm border border-zinc-200/50 dark:border-zinc-800/50 overflow-hidden hover:shadow-2xl hover:shadow-black/5 transition-all">
+                          <div className="p-6 space-y-6">
+                            <div className="flex gap-4">
+                              <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-[20px] object-cover shadow-md group-hover:scale-105 transition-transform" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-extrabold text-lg text-zinc-900 dark:text-white truncate">{app.name}</h4>
+                                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">{app.category}</p>
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${app.status === 'published' ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}`}>
+                                  {app.status || 'Production'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                               <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl">
+                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">Version</p>
+                                 <p className="text-sm font-bold">{app.version || 'v1.0.0'}</p>
+                               </div>
+                               <div className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl">
+                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">Size</p>
+                                 <p className="text-sm font-bold">{app.size || '0.0 KB'}</p>
+                               </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                              <button onClick={() => setEditingApp(app)} className="flex-1 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all">Configure</button>
+                              <button onClick={() => setAppToDelete(app)} className="w-12 h-12 flex items-center justify-center bg-red-100 dark:bg-red-900/20 text-red-500 rounded-xl hover:bg-red-200 transition-all"><Trash2 className="w-5 h-5" /></button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {adminTab === 'users' && (
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Identity Registry</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Global directory of authenticated network participants.</p>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 px-8 py-4 rounded-[28px] border border-zinc-100 dark:border-zinc-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)]">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-1">Live Records</span>
+                    <span className="text-3xl font-black text-zinc-900 dark:text-white tabular-nums">{totalUsers}</span>
+                  </div>
+                </div>
+ 
+                <div className="bg-white dark:bg-zinc-900 rounded-[48px] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                  <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left min-w-[800px]">
+                      <thead>
+                        <tr className="bg-zinc-50/50 dark:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800">
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Participant</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Node Pointer</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Communication</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] text-right">Access Level</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100/50 dark:divide-zinc-800/50">
+                        {allUsers.map((user) => (
+                          <tr key={user.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-all duration-300">
+                            <td className="px-10 py-7">
+                              <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-transparent group-hover:border-blue-500/20 shadow-inner group-hover:scale-110 transition-all duration-500">
+                                  {user.photoURL ? (
+                                    <img src={user.photoURL} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <Users className="w-7 h-7 text-zinc-300" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-base font-black text-zinc-900 dark:text-white leading-none">{user.firstName} {user.lastName}</p>
+                                  <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-2">Initialized {userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : 'N/A'}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-10 py-7 text-sm font-black text-blue-500 tracking-tight">@{user.username}</td>
+                            <td className="px-10 py-7 text-sm font-medium text-zinc-500 dark:text-zinc-400">{user.email}</td>
+                            <td className="px-10 py-7 text-right">
+                              <span className={`text-[10px] font-black uppercase tracking-[0.25em] px-5 py-2 rounded-full border ${user.role === 'admin' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-transparent shadow-xl' : 'bg-transparent text-zinc-400 border-zinc-100 dark:border-zinc-800 group-hover:border-zinc-200 group-hover:text-zinc-600 transition-colors'}`}>
+                                {user.role || 'Participant'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {allUsers.length === 0 && !isLoadingUsers && (
+                    <div className="text-center py-24">
+                       <div className="w-24 h-24 bg-zinc-50 dark:bg-zinc-800/50 rounded-[40px] flex items-center justify-center mx-auto mb-6 border border-zinc-100 dark:border-zinc-800 shadow-inner">
+                         <Users className="w-10 h-10 text-zinc-200" />
+                       </div>
+                       <p className="font-black text-zinc-400 uppercase tracking-[0.3em]">Registry Empty</p>
+                    </div>
+                  )}
+                  {isLoadingUsers && (
+                    <div className="flex flex-col items-center justify-center py-24 gap-6">
+                      <div className="w-14 h-14 border-4 border-zinc-100 dark:border-zinc-800 border-t-zinc-900 dark:border-t-white rounded-full animate-spin" />
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Scanning Global Nodes...</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+ 
+            {adminTab === 'today' && (
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                  <div className="space-y-1">
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Stream Curation</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Configure the featured artifact pipeline.</p>
+                  </div>
+                  <label className="flex items-center gap-6 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-8 py-5 rounded-[32px] shadow-sm cursor-pointer group transition-all hover:translate-y-[-2px]">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] group-hover:text-blue-500 transition-colors">Broadcast Active</span>
+                    <button 
+                      onClick={async () => {
+                        const newValue = !isTodayEnabled;
+                        setIsTodayEnabled(newValue);
+                        await setDoc(doc(db, 'settings', 'system'), { isTodayEnabled: newValue }, { merge: true });
+                        toast.success(`Today portal ${newValue ? 'active' : 'suspended'}`);
+                      }}
+                      className="relative inline-flex h-9 w-16 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                      style={{ backgroundColor: isTodayEnabled ? '#3b82f6' : '#e4e4e7' }}
+                    >
+                      <motion.span 
+                        animate={{ x: isTodayEnabled ? 32 : 4 }}
+                        className="pointer-events-none block h-7 w-7 rounded-full bg-white shadow-lg ring-0 transition-transform"
+                      />
+                    </button>
+                  </label>
+                </div>
+ 
+                <div className="bg-white dark:bg-zinc-900 rounded-[56px] p-12 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-12">
+                  <div className="max-w-3xl">
+                    <div className="flex items-center gap-4 mb-6">
+                       <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                         <Star className="w-6 h-6 fill-zinc-900 dark:fill-white" />
+                       </div>
+                       <h4 className="text-2xl font-black text-zinc-900 dark:text-white leading-none">Curation Pipeline</h4>
+                    </div>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight leading-relaxed">Identity the most compelling artifacts for the landing stream. Slot 1 defaults to the <span className="text-zinc-900 dark:text-white font-black border-b-2 border-blue-500/30">Premiere Slot</span>, supporting high-fidelity visual engagement.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {apps.filter(a => a.status === 'published').map(app => {
+                      const isSelected = todayApps.includes(app.id);
+                      const slotIndex = todayApps.indexOf(app.id);
+                      return (
+                        <label key={app.id} className={`group flex items-center justify-between p-8 rounded-[40px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-900 dark:border-white shadow-2xl' : 'bg-transparent border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'}`}>
+                          <div className="flex items-center gap-6 relative z-10">
+                            <div className="relative">
+                              <img src={app.iconUrl} alt={app.name} className={`w-16 h-16 rounded-[24px] object-cover shadow-2xl transition-all duration-500 group-hover:scale-110 ${isSelected ? 'scale-110 rotate-3' : ''}`} />
+                              {isSelected && (
+                                <div className="absolute -top-3 -left-3 w-9 h-9 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-xs font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
+                                  {slotIndex + 1}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-black text-lg text-zinc-900 dark:text-white leading-tight">{app.name}</p>
+                              <p className="text-[10px] font-black text-zinc-400 mt-1.5 uppercase tracking-widest">{app.category}</p>
+                            </div>
+                          </div>
+                          
+                          <div className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center relative z-10 ${isSelected ? 'bg-zinc-900 dark:bg-white border-transparent shadow-xl' : 'border-zinc-200'}`}>
+                            {isSelected && <Check className="w-4 h-4 text-white dark:text-zinc-900 stroke-[4]" />}
+                          </div>
+
+                          {isSelected && (
+                            <motion.div 
+                              layoutId={`selectionGlow-${app.id}`}
+                              className="absolute inset-0 bg-zinc-900/5 dark:bg-white/5 pointer-events-none"
+                            />
+                          )}
+
+                          <input 
+                            type="checkbox" 
+                            className="sr-only"
+                            checked={isSelected}
+                            onChange={async (e) => {
+                              let newTodayApps = [...todayApps];
+                              if (e.target.checked) {
+                                if (newTodayApps.length >= 5) {
+                                  toast.error('Identity buffer overflow: max 5 slots active');
+                                  return;
+                                }
+                                newTodayApps.push(app.id);
+                              } else {
+                                newTodayApps = newTodayApps.filter(id => id !== app.id);
+                              }
+                              setTodayApps(newTodayApps);
+                              await setDoc(doc(db, 'settings', 'system'), { todayApps: newTodayApps }, { merge: true });
+                            }}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {adminTab === 'settings' && (
+              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-12 max-w-4xl mx-auto">
+                <div className="text-center space-y-3">
+                   <h3 className="text-5xl font-black text-zinc-900 dark:text-white tracking-widest uppercase">Nodes</h3>
+                   <p className="text-zinc-500 font-extrabold uppercase tracking-[0.4em] text-[11px] ml-1">Deep Level System Integration</p>
+                </div>
+                
+                <div className="bg-white dark:bg-zinc-900 rounded-[56px] p-12 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-16">
+                  <div className="grid grid-cols-1 gap-12">
+                    <div className="group space-y-4">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] ml-4 block transition-colors group-focus-within:text-blue-500">Global Node Identifier</label>
+                      <input 
+                        type="text" 
+                        value={storeName} 
+                        onChange={(e) => setStoreName(e.target.value)}
+                        className="w-full text-4xl font-black p-10 rounded-[40px] bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-blue-500/20 transition-all outline-none shadow-inner"
+                        placeholder="Define store identity"
+                      />
+                    </div>
+ 
+                    <div className="flex flex-col md:flex-row md:items-center justify-between p-10 bg-zinc-50 dark:bg-zinc-800/30 rounded-[40px] border border-zinc-100/50 dark:border-zinc-800/50 group transition-all hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 gap-8">
+                      <div className="flex items-center gap-8">
+                        <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center transition-all duration-500 ${isMaintenanceMode ? 'bg-red-500 text-white shadow-2xl shadow-red-500/30 scale-110' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400'}`}>
+                           <CloudAlert className="w-10 h-10" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">Maintenance Lock</h4>
+                          <p className="text-base text-zinc-500 font-medium tracking-tight">Suspend public traffic for live debugging.</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setIsMaintenanceMode(!isMaintenanceMode)}
+                        className="relative inline-flex h-12 w-24 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+                        style={{ backgroundColor: isMaintenanceMode ? '#ef4444' : '#e4e4e7' }}
+                      >
+                        <span className="sr-only">Toggle Maintenance Mode</span>
+                        <motion.span 
+                          animate={{ x: isMaintenanceMode ? 52 : 4 }}
+                          className="pointer-events-none block h-10 w-10 rounded-full bg-white shadow-xl ring-0 transition-transform"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-between px-3 text-[8px] font-black uppercase text-white pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span>{isMaintenanceMode ? '' : 'Off'}</span>
+                          <span>{isMaintenanceMode ? 'On' : ''}</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+ 
+                  <div className="pt-8">
+                    <button onClick={() => toast.success('Network state persist successfully')} className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[40px] font-black text-xl uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/10 hover:scale-[1.02] active:scale-95 transition-all">Persist Configuration</button>
+                  </div>
+                </div>
+ 
+                <div className="bg-red-50/50 dark:bg-red-900/5 rounded-[56px] p-12 md:p-16 border-2 border-dashed border-red-200/50 dark:border-red-900/20 text-center space-y-10">
+                  <div className="w-24 h-24 bg-red-100 dark:bg-red-900/30 rounded-[36px] flex items-center justify-center text-red-500 mx-auto shadow-inner group transition-transform hover:rotate-12">
+                    <Trash2 className="w-12 h-12" />
+                  </div>
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    <h4 className="text-3xl font-black text-red-800 dark:text-red-400 tracking-tight uppercase">System Wipe</h4>
+                    <p className="text-sm font-bold text-red-600/70 dark:text-red-300/50 uppercase tracking-[0.2em] leading-relaxed">Warning: Irreversible procedure. Global erase will purge all artifacts, users, and telemetry records from the network.</p>
+                  </div>
+                  <button 
+                    onClick={resetDatabase}
+                    disabled={isResettingDatabase}
+                    className="w-full max-w-sm mx-auto py-8 bg-red-600 text-white rounded-[40px] font-black text-lg uppercase tracking-[0.3em] shadow-2xl shadow-red-600/30 hover:bg-red-700 transition-all disabled:opacity-30 flex items-center justify-center gap-4 group"
+                  >
+                    {isResettingDatabase ? <Loader2 className="w-7 h-7 animate-spin text-white" /> : <ShieldAlert className="w-7 h-7 group-hover:animate-bounce" />}
+                    {isResettingDatabase ? 'Scrubbing...' : 'Execute Wipe'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 };
 
 const AuthModal: React.FC<{ 
@@ -1031,8 +1931,8 @@ const AuthModal: React.FC<{
         className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl"
       >
         <div className="p-8 flex flex-col items-center text-center space-y-6">
-          <div className="w-20 h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-4xl shadow-inner">
-            {app.icon}
+          <div className="w-20 h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-4xl shadow-inner overflow-hidden">
+            {app.iconUrl ? <img src={app.iconUrl} className="w-full h-full object-cover" /> : "📱"}
           </div>
           
           <div className="space-y-1">
@@ -1152,12 +2052,14 @@ const ProfileSheet: React.FC<{
   setSelectedApp: (app: AppItem | null) => void;
   setIsPreviewOpen: (isOpen: boolean) => void;
   setApps: (apps: AppItem[]) => void;
+  setIsSystemPortalOpen: (isOpen: boolean) => void;
 }> = ({ 
   isOpen, onClose, isDarkMode, setIsDarkMode, language, setLanguage,
   passcode, setPasscode, isFaceIdEnabled, setIsFaceIdEnabled, isTouchIdEnabled, setIsTouchIdEnabled,
   purchasedAppIds, userProfile, setUserProfile, apps, isAdmin, isMaintenanceMode, storeName,
   setStoreName, setIsMaintenanceMode, isTodayEnabled, setIsTodayEnabled, todayApps, setTodayApps,
-  view, setView, initialView, selectedPublisherId, setSelectedPublisherId, setSelectedApp, setIsPreviewOpen, setApps
+  view, setView, initialView, selectedPublisherId, setSelectedPublisherId, setSelectedApp, setIsPreviewOpen, setApps,
+  setIsSystemPortalOpen
 }) => {
   useEffect(() => {
     if (initialView) {
@@ -1170,24 +2072,6 @@ const ProfileSheet: React.FC<{
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   useEffect(() => {
-    let unsubscribeActivities: (() => void) | undefined;
-    if (view === 'admin') {
-      setIsLoadingUsers(true);
-      getDocs(collection(db, 'users')).then(snapshot => {
-        setTotalUsers(snapshot.size);
-        setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setIsLoadingUsers(false);
-      }).catch(err => {
-        console.error(err);
-        setIsLoadingUsers(false);
-      });
-
-      const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(10));
-      unsubscribeActivities = onSnapshot(q, (snapshot) => {
-        setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      });
-    }
-
     if (view === 'publisher-profile' && selectedPublisherId) {
       setIsLoadingUsers(true);
       getDoc(doc(db, 'users', selectedPublisherId)).then(snapshot => {
@@ -1205,9 +2089,7 @@ const ProfileSheet: React.FC<{
       });
     }
 
-    return () => {
-      if (unsubscribeActivities) unsubscribeActivities();
-    };
+    return () => {};
   }, [view, selectedPublisherId]);
 
   const [authView, setAuthView] = useState<'signin' | 'signup' | 'forgot'>('signin');
@@ -1440,24 +2322,6 @@ const ProfileSheet: React.FC<{
   const [editLastName, setEditLastName] = useState(userProfile?.lastName || '');
   const [editPic, setEditPic] = useState(userProfile?.photoURL || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [uploadName, setUploadName] = useState('');
-  const [uploadIsGame, setUploadIsGame] = useState(false);
-  const [uploadCategory, setUploadCategory] = useState('');
-  const [uploadIconUrl, setUploadIconUrl] = useState('');
-  const [uploadMainThumbnail, setUploadMainThumbnail] = useState('');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadSize, setUploadSize] = useState('');
-  const [uploadVersion, setUploadVersion] = useState('');
-  const [uploadDownloadUrl, setUploadDownloadUrl] = useState('');
-  const [uploadScreenshots, setUploadScreenshots] = useState<string[]>([]);
-  const [uploadStatus, setUploadStatus] = useState<'draft' | 'published'>('published');
-  const [editingApp, setEditingApp] = useState<AppItem | null>(null);
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'publish' | 'manage' | 'users' | 'settings' | 'today'>('dashboard');
-  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
-  const [adminSearchQuery, setAdminSearchQuery] = useState('');
-  const [adminFilterStatus, setAdminFilterStatus] = useState<'all' | 'published' | 'draft' | 'archived'>('all');
-  const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
-  const [isResettingDatabase, setIsResettingDatabase] = useState(false);
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
   const [tempPasscode, setTempPasscode] = useState('');
   const [passcodeStep, setPasscodeStep] = useState<'enter' | 'confirm'>('enter');
@@ -1553,25 +2417,30 @@ const ProfileSheet: React.FC<{
   };
 
   const renderHeader = (title: string, showBack = true) => (
-    <div className="flex items-center justify-between px-6 mb-8">
+    <div className="flex items-center justify-between px-6 py-4 md:py-6 mb-4 md:mb-8 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-900 sticky top-0 z-20">
       <div className="flex items-center gap-3">
         {showBack && (
           <button 
             onClick={() => {
-              if (['edit-profile', 'language', 'faceid-passcode', 'purchased', 'subscriptions', 'privacy', 'support', 'admin'].includes(view)) {
+              if (['language', 'faceid-passcode', 'set-passcode'].includes(view)) {
                 setView('settings');
               } else {
                 setView('main');
               }
             }} 
-            className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+            className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center"
           >
-            <ChevronLeft className="w-7 h-7 text-blue-500" />
+            <ChevronLeft className="w-8 h-8 text-blue-500" />
           </button>
         )}
-        <h2 className="text-3xl font-bold text-zinc-900 dark:text-white">{title}</h2>
+        <h2 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">{title}</h2>
       </div>
-      <button onClick={handleClose} className="text-blue-500 font-semibold text-lg">Done</button>
+      <button 
+        onClick={handleClose} 
+        className="px-4 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-blue-500 font-bold text-sm md:text-base hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+      >
+        Done
+      </button>
     </div>
   );
 
@@ -1650,10 +2519,13 @@ const ProfileSheet: React.FC<{
                     {/* Admin Section */}
                     {isAdmin && (
                       <button 
-                        onClick={() => setView('admin')}
+                        onClick={() => {
+                          setIsSystemPortalOpen(true);
+                          handleClose();
+                        }}
                         className="w-full bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-sm mb-6 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                       >
-                        <h3 className="font-bold text-lg">Admin Panel</h3>
+                        <h3 className="font-bold text-lg">System Portal</h3>
                         <ChevronRight className="w-5 h-5 text-zinc-300" />
                       </button>
                     )}
@@ -1710,672 +2582,6 @@ const ProfileSheet: React.FC<{
                         >
                           {(TRANSLATIONS[language] || TRANSLATIONS.English).signOut}
                         </button>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {view === 'admin' && (
-                <motion.div 
-                  key="admin"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-black"
-                >
-                  <div className="p-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 z-10">
-                    <button onClick={() => setView('main')} className="p-2 -ml-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors">
-                      <ChevronRight className="w-6 h-6 rotate-180" />
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-blue-500" />
-                      <h2 className="font-bold text-zinc-900 dark:text-white tracking-tight">System Portal</h2>
-                    </div>
-                    <div className="w-10" />
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-4xl mx-auto space-y-8">
-                      <div className="flex gap-2 p-1 bg-zinc-200 dark:bg-zinc-800 rounded-xl overflow-x-auto no-scrollbar">
-                        <button onClick={() => setAdminTab('dashboard')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'dashboard' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Dashboard</button>
-                        <button onClick={() => setAdminTab('publish')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'publish' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Publish New</button>
-                        <button onClick={() => setAdminTab('manage')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'manage' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Manage Apps</button>
-                        <button onClick={() => setAdminTab('users')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'users' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Users</button>
-                        <button onClick={() => setAdminTab('today')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'today' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Today Page</button>
-                        <button onClick={() => setAdminTab('settings')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-medium text-sm transition-all ${adminTab === 'settings' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'}`}>Settings</button>
-                      </div>
-
-                      {adminTab === 'dashboard' && (
-                        <div className="space-y-6">
-                          <div>
-                            <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Dashboard Overview</h3>
-                            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Key metrics and system status.</p>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                              <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
-                                  <LayoutGrid className="w-6 h-6" />
-                                </div>
-                                <div>
-                                  <p className="text-sm text-zinc-500 font-medium">Total Apps</p>
-                                  <h4 className="text-2xl font-bold">{apps.length}</h4>
-                                </div>
-                              </div>
-                              {apps.length === 0 && (
-                                <button 
-                                  onClick={seedSampleData}
-                                  className="w-full py-2 bg-blue-500 text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors mb-2"
-                                >
-                                  Seed Sample Data
-                                </button>
-                              )}
-                              <button 
-                                onClick={fixPublisherData}
-                                className="w-full py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-xl text-xs font-bold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2"
-                              >
-                                <Wrench className="w-3 h-3" />
-                                Fix Publisher Data
-                              </button>
-                            </div>
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                              <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-500">
-                                  <ArrowDownToLine className="w-6 h-6" />
-                                </div>
-                                <div>
-                                  <p className="text-sm text-zinc-500 font-medium">Total Downloads</p>
-                                  <h4 className="text-2xl font-bold">{apps.reduce((acc, app) => acc + (app.downloads || 0), 0).toLocaleString()}</h4>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                              <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-500">
-                                  <Users className="w-6 h-6" />
-                                </div>
-                                <div>
-                                  <p className="text-sm text-zinc-500 font-medium">Total Users</p>
-                                  <h4 className="text-2xl font-bold">{totalUsers}</h4>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                                  <History className="w-5 h-5 text-purple-500" />
-                                  Recent Activity
-                                </h4>
-                                <button 
-                                  onClick={clearActivities}
-                                  className="text-[10px] font-bold text-zinc-400 hover:text-red-500 transition-colors uppercase tracking-wider"
-                                >
-                                  Clear Logs
-                                </button>
-                              </div>
-                              <div className="space-y-4">
-                                {activities.length > 0 ? activities.map(activity => (
-                                  <div key={activity.id} className="flex gap-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${activity.type === 'app_published' ? 'bg-green-100 text-green-500 dark:bg-green-900/30' : 'bg-red-100 text-red-500 dark:bg-red-900/30'}`}>
-                                      {activity.type === 'app_published' ? <PlusCircle className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm text-zinc-900 dark:text-white font-medium">{activity.message}</p>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[10px] text-zinc-500">@{activity.userName}</span>
-                                        <span className="text-[10px] text-zinc-400">•</span>
-                                        <span className="text-[10px] text-zinc-400">{new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )) : (
-                                  <p className="text-sm text-zinc-500 text-center py-4">No recent activity.</p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                              <h4 className="font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-green-500" />
-                                System Health
-                              </h4>
-                              <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-zinc-500">Database Connection</span>
-                                  <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">Active</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-zinc-500">Storage Service</span>
-                                  <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">Active</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm text-zinc-500">Auth Service</span>
-                                  <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">Active</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-                            <h4 className="font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
-                              <PlusCircle className="w-5 h-5 text-blue-500" />
-                              Recent Applications
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {apps.slice(0, 6).map(app => (
-                                <div key={app.id} className="flex items-center gap-3 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
-                                  <img src={app.iconUrl} alt={app.name} className="w-10 h-10 rounded-xl object-cover" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{app.name}</p>
-                                    <p className="text-[10px] text-zinc-500 truncate">{app.category}</p>
-                                  </div>
-                                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${app.status === 'published' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                                    {app.status || 'Published'}
-                                  </span>
-                                </div>
-                              ))}
-                              {apps.length === 0 && <p className="text-sm text-zinc-500 text-center py-4 col-span-full">No apps yet.</p>}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {adminTab === 'publish' && (
-                        <div className="space-y-6">
-                          <div>
-                            <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Publish New Application</h3>
-                            <p className="text-zinc-500 dark:text-zinc-400 text-sm">Enter the application details below to publish it to the store.</p>
-                          </div>
-                          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-zinc-200/50 dark:border-zinc-800/50 space-y-6">
-                            <div className="space-y-4">
-                              <div>
-                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Basic Information</label>
-                                <div className="space-y-3">
-                                  <input type="text" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Application Name" className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                                  
-                                  <div className="flex gap-3">
-                                    <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-3 rounded-xl font-bold transition-colors ${!uploadIsGame ? 'bg-blue-500 text-white shadow-md' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>App</button>
-                                    <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-3 rounded-xl font-bold transition-colors ${uploadIsGame ? 'bg-blue-500 text-white shadow-md' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>Game</button>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <select 
-                                      value={uploadCategory} 
-                                      onChange={(e) => setUploadCategory(e.target.value)} 
-                                      className={`w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all ${!uploadCategory ? 'text-zinc-400' : ''}`}
-                                    >
-                                      <option value="" disabled>Select Category</option>
-                                      {['Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map((cat) => (
-                                        <option key={cat} value={cat} className="text-zinc-900 dark:text-white">{cat}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Icon & Media</label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div>
-                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">App Icon</label>
-                                    <ImageUploader onUpload={setUploadIconUrl} currentIconUrl={uploadIconUrl} />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Main Thumbnail (Optional)</label>
-                                    <ImageUploader onUpload={setUploadMainThumbnail} currentIconUrl={uploadMainThumbnail} />
-                                  </div>
-                                  <div className="space-y-4 md:col-span-2">
-                                    <div>
-                                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Download URL</label>
-                                      <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://..." className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Technical Details</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <input type="text" value={uploadSize} onChange={(e) => setUploadSize(e.target.value)} placeholder="Size (e.g. 45 MB)" className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                                  <input type="text" value={uploadVersion} onChange={(e) => setUploadVersion(e.target.value)} placeholder="Version (e.g. 1.0.0)" className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
-                                </div>
-                              </div>
-
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Publishing Status</label>
-                                <select value={uploadStatus} onChange={(e) => setUploadStatus(e.target.value as any)} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
-                                  <option value="published">Published (Visible to users)</option>
-                                  <option value="draft">Draft (Hidden from users)</option>
-                                </select>
-                              </div>
-
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Description</label>
-                                <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Detailed application description..." rows={4} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none" />
-                              </div>
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <ScreenshotUploader onUpload={setUploadScreenshots} />
-                              </div>
-                            </div>
-
-                            <button 
-                              onClick={async () => {
-                                if (!uploadName || !uploadCategory || !uploadIconUrl || !uploadDownloadUrl) {
-                                  toast.error('Please fill in all required fields');
-                                  return;
-                                }
-                                try {
-                                  await uploadApp({ 
-                                    name: uploadName, 
-                                    category: uploadCategory, 
-                                    rating: 0, 
-                                    iconUrl: uploadIconUrl, 
-                                    mainThumbnail: uploadMainThumbnail,
-                                    isGame: uploadIsGame, 
-                                    developer: `${userProfile.firstName} ${userProfile.lastName}`, 
-                                    description: uploadDescription,
-                                    size: uploadSize || 'Unknown',
-                                    version: uploadVersion || '1.0.0',
-                                    downloadUrl: uploadDownloadUrl,
-                                    screenshots: uploadScreenshots,
-                                    status: uploadStatus
-                                  });
-                                  toast.success('Application published successfully');
-                                  logActivity('app_published', `Published application: ${uploadName}`);
-                                  setUploadName('');
-                                  setUploadCategory('');
-                                  setUploadIconUrl('');
-                                  setUploadMainThumbnail('');
-                                  setUploadDescription('');
-                                  setUploadSize('');
-                                  setUploadVersion('');
-                                  setUploadDownloadUrl('');
-                                  setUploadScreenshots([]);
-                                  setUploadStatus('published');
-                                  setView('main');
-                                } catch (error) {
-                                  toast.error('Failed to publish application');
-                                }
-                              }} 
-                              className="w-full py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center justify-center gap-2"
-                            >
-                              <Upload className="w-5 h-5" />
-                              Upload App
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {adminTab === 'manage' && (
-                        <div className="space-y-4">
-                          <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Manage Applications</h3>
-                          {editingApp ? (
-                            <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 space-y-4">
-                              <h4 className="text-xl font-bold">Edit {editingApp.name}</h4>
-                              <div className="flex gap-4 items-center">
-                                <div className="w-20 h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                                  {editingApp.iconUrl ? <img src={editingApp.iconUrl} alt="Icon" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <LayoutGrid className="w-8 h-8 text-zinc-400" />}
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                  <input type="text" value={editingApp.name} onChange={(e) => setEditingApp({...editingApp, name: e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Name" />
-                                  <input type="text" value={editingApp.iconUrl} onChange={(e) => setEditingApp({...editingApp, iconUrl: e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Icon URL" />
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-zinc-500 uppercase px-1">Main Thumbnail</label>
-                                <div className="aspect-video rounded-2xl bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                                  {editingApp.mainThumbnail ? <img src={editingApp.mainThumbnail} alt="Thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="w-full h-full flex items-center justify-center text-zinc-400">No Thumbnail</div>}
-                                </div>
-                                <input type="text" value={editingApp.mainThumbnail || ''} onChange={(e) => setEditingApp({...editingApp, mainThumbnail: e.target.value})} className="w-full p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Main Thumbnail URL" />
-                              </div>
-                              <input type="text" value={editingApp.category} onChange={(e) => setEditingApp({...editingApp, category: e.target.value})} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Category" />
-                              <input type="text" value={editingApp.version} onChange={(e) => setEditingApp({...editingApp, version: e.target.value})} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Version" />
-                              <input type="text" value={editingApp.size} onChange={(e) => setEditingApp({...editingApp, size: e.target.value})} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Size" />
-                              <input type="text" value={editingApp.downloadUrl || ''} onChange={(e) => setEditingApp({...editingApp, downloadUrl: e.target.value})} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" placeholder="Download URL" />
-                              <textarea value={editingApp.description} onChange={(e) => setEditingApp({...editingApp, description: e.target.value})} className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700" rows={4} placeholder="Description" />
-                              
-                              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                                <ScreenshotUploader 
-                                  initialScreenshots={editingApp.screenshots || []}
-                                  onUpload={(urls) => setEditingApp({...editingApp, screenshots: urls})} 
-                                />
-                              </div>
-
-                              <div className="flex items-center gap-4">
-                                <label className="text-sm font-bold">Status:</label>
-                                <select value={editingApp.status} onChange={(e) => setEditingApp({...editingApp, status: e.target.value as any})} className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                                  <option value="draft">Draft</option>
-                                  <option value="published">Published</option>
-                                  <option value="archived">Archived</option>
-                                </select>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <button onClick={() => setEditingApp(null)} className="flex-1 py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 font-bold">Cancel</button>
-                                <button onClick={async () => {
-                                  await updateDoc(doc(db, 'apps', editingApp.id), { ...editingApp });
-                                  toast.success('App updated successfully');
-                                  setEditingApp(null);
-                                }} className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-bold">Save Changes</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <div className="flex gap-4">
-                                <input 
-                                  type="text" 
-                                  placeholder="Search apps..." 
-                                  value={adminSearchQuery}
-                                  onChange={(e) => setAdminSearchQuery(e.target.value)}
-                                  className="flex-1 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                                <select 
-                                  value={adminFilterStatus}
-                                  onChange={(e) => setAdminFilterStatus(e.target.value as any)}
-                                  className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                  <option value="all">All Status</option>
-                                  <option value="published">Published</option>
-                                  <option value="draft">Draft</option>
-                                  <option value="archived">Archived</option>
-                                </select>
-                              </div>
-                              
-                              {appToDelete && (
-                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-2xl flex items-center justify-between">
-                                  <div>
-                                    <h4 className="font-bold text-red-800 dark:text-red-400">Delete {appToDelete.name}?</h4>
-                                    <p className="text-sm text-red-600 dark:text-red-300">This action cannot be undone.</p>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button onClick={() => setAppToDelete(null)} className="px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium text-sm">Cancel</button>
-                                    <button onClick={async () => {
-                                      try {
-                                        await deleteDoc(doc(db, 'apps', appToDelete.id));
-                                        toast.success('App deleted successfully');
-                                        logActivity('app_deleted', `Deleted application: ${appToDelete.name}`);
-                                        setAppToDelete(null);
-                                      } catch (error) {
-                                        toast.error('Failed to delete app');
-                                      }
-                                    }} className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium text-sm">Delete</button>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="space-y-3">
-                                {apps.filter(app => {
-                                  const matchesSearch = app.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || app.category.toLowerCase().includes(adminSearchQuery.toLowerCase());
-                                  const matchesStatus = adminFilterStatus === 'all' || app.status === adminFilterStatus;
-                                  return matchesSearch && matchesStatus;
-                                }).map(app => (
-                                  <div key={app.id} className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                                    <div 
-                                      className="p-4 flex items-center gap-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-                                      onClick={() => setExpandedAppId(expandedAppId === app.id ? null : app.id)}
-                                    >
-                                      <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl object-cover" />
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-zinc-900 dark:text-white truncate">{app.name}</h4>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">{app.category}</span>
-                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${app.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : app.status === 'draft' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                                            {app.status ? app.status.charAt(0).toUpperCase() + app.status.slice(1) : 'Published'}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <button onClick={(e) => { e.stopPropagation(); setEditingApp(app); }} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
-                                          <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); setAppToDelete(app); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                        <ChevronRight className={`w-4 h-4 text-zinc-400 transition-transform ${expandedAppId === app.id ? 'rotate-90' : ''}`} />
-                                      </div>
-                                    </div>
-                                    
-                                    <AnimatePresence>
-                                      {expandedAppId === app.id && (
-                                        <motion.div
-                                          initial={{ height: 0, opacity: 0 }}
-                                          animate={{ height: 'auto', opacity: 1 }}
-                                          exit={{ height: 0, opacity: 0 }}
-                                          className="border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20"
-                                        >
-                                          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                            <div>
-                                              <p className="text-[10px] font-bold text-zinc-400 uppercase">Version</p>
-                                              <p className="text-sm font-medium">{app.version || '1.0.0'}</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-[10px] font-bold text-zinc-400 uppercase">Size</p>
-                                              <p className="text-sm font-medium">{app.size || 'Unknown'}</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-[10px] font-bold text-zinc-400 uppercase">Downloads</p>
-                                              <p className="text-sm font-medium">{app.downloads || 0}</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-[10px] font-bold text-zinc-400 uppercase">Rating</p>
-                                              <p className="text-sm font-medium">⭐ {app.rating || 0}</p>
-                                            </div>
-                                            <div className="col-span-2 sm:col-span-4">
-                                              <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1">Description</p>
-                                              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">{app.description}</p>
-                                            </div>
-                                          </div>
-                                        </motion.div>
-                                      )}
-                                    </AnimatePresence>
-                                  </div>
-                                ))}
-                                {apps.filter(app => {
-                                  const matchesSearch = app.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) || app.category.toLowerCase().includes(adminSearchQuery.toLowerCase());
-                                  const matchesStatus = adminFilterStatus === 'all' || app.status === adminFilterStatus;
-                                  return matchesSearch && matchesStatus;
-                                }).length === 0 && (
-                                  <div className="text-center py-12 text-zinc-500">
-                                    No applications found matching your criteria.
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {adminTab === 'users' && (
-                        <div className="space-y-4">
-                          <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">User Management</h3>
-                          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left">
-                                <thead className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800">
-                                  <tr>
-                                    <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">User</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Username</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Email</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">Role</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                                  {allUsers.map((user) => (
-                                    <tr key={user.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                      <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
-                                            {user.photoURL ? (
-                                              <img src={user.photoURL} alt={user.username} className="w-full h-full object-cover" />
-                                            ) : (
-                                              <Users className="w-4 h-4 text-zinc-400" />
-                                            )}
-                                          </div>
-                                          <span className="text-sm font-medium text-zinc-900 dark:text-white">
-                                            {user.firstName} {user.lastName}
-                                          </span>
-                                        </div>
-                                      </td>
-                                      <td className="px-6 py-4 text-sm text-zinc-500">@{user.username}</td>
-                                      <td className="px-6 py-4 text-sm text-zinc-500">{user.email}</td>
-                                      <td className="px-6 py-4">
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${user.role === 'admin' ? 'bg-blue-500/10 text-blue-500' : 'bg-zinc-500/10 text-zinc-500'}`}>
-                                          {user.role || 'User'}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            {allUsers.length === 0 && !isLoadingUsers && (
-                              <div className="text-center py-12 text-zinc-500">No users found.</div>
-                            )}
-                            {isLoadingUsers && (
-                              <div className="flex items-center justify-center py-12">
-                                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {adminTab === 'today' && (
-                        <div className="space-y-6">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Today Page Customization</h3>
-                            <label className="flex items-center gap-3 cursor-pointer">
-                              <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Enable Today Page</span>
-                              <div className="relative">
-                                <input 
-                                  type="checkbox" 
-                                  className="sr-only" 
-                                  checked={isTodayEnabled}
-                                  onChange={async (e) => {
-                                    const newValue = e.target.checked;
-                                    setIsTodayEnabled(newValue);
-                                    await setDoc(doc(db, 'settings', 'system'), { isTodayEnabled: newValue }, { merge: true });
-                                    toast.success(`Today page ${newValue ? 'enabled' : 'disabled'}`);
-                                  }}
-                                />
-                                <div className={`block w-14 h-8 rounded-full transition-colors ${isTodayEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}></div>
-                                <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isTodayEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                              </div>
-                            </label>
-                          </div>
-
-                          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-800 space-y-6">
-                            <div>
-                              <label className="block text-sm font-bold text-zinc-900 dark:text-white mb-2">Select Apps for Today (Max 5)</label>
-                              <p className="text-xs text-zinc-500 mb-4">Choose which apps should appear on the Today page. The first app will be the Premiere, the second will be App of the Day.</p>
-                              
-                              <div className="space-y-2">
-                                {apps.filter(a => a.status === 'published').map(app => {
-                                  const isSelected = todayApps.includes(app.id);
-                                  return (
-                                    <label key={app.id} className="flex items-center justify-between p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors">
-                                      <div className="flex items-center gap-4">
-                                        <img src={app.iconUrl} alt={app.name} className="w-12 h-12 rounded-xl object-cover" />
-                                        <div>
-                                          <p className="font-bold text-zinc-900 dark:text-white">{app.name}</p>
-                                          <p className="text-xs text-zinc-500">{app.category}</p>
-                                        </div>
-                                      </div>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={isSelected}
-                                        onChange={async (e) => {
-                                          let newTodayApps = [...todayApps];
-                                          if (e.target.checked) {
-                                            if (newTodayApps.length >= 5) {
-                                              toast.error('Maximum 5 apps allowed on Today page');
-                                              return;
-                                            }
-                                            newTodayApps.push(app.id);
-                                          } else {
-                                            newTodayApps = newTodayApps.filter(id => id !== app.id);
-                                          }
-                                          setTodayApps(newTodayApps);
-                                          await setDoc(doc(db, 'settings', 'system'), { todayApps: newTodayApps }, { merge: true });
-                                        }}
-                                        className="w-5 h-5 rounded border-zinc-300 text-blue-500 focus:ring-blue-500"
-                                      />
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {adminTab === 'settings' && (
-                        <div className="space-y-6">
-                          <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">System Settings</h3>
-                          
-                          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-zinc-200 dark:border-zinc-800 space-y-6">
-                            <div>
-                              <label className="block text-sm font-bold text-zinc-900 dark:text-white mb-2">Store Name</label>
-                              <input 
-                                type="text" 
-                                value={storeName} 
-                                onChange={(e) => setStoreName(e.target.value)}
-                                className="w-full p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Enter store name"
-                              />
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                              <div>
-                                <h4 className="font-bold text-zinc-900 dark:text-white">Maintenance Mode</h4>
-                                <p className="text-xs text-zinc-500">When enabled, users will see a maintenance screen.</p>
-                              </div>
-                              <button 
-                                onClick={() => setIsMaintenanceMode(!isMaintenanceMode)}
-                                className={`w-12 h-6 rounded-full transition-colors relative ${isMaintenanceMode ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
-                              >
-                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isMaintenanceMode ? 'left-7' : 'left-1'}`} />
-                              </button>
-                            </div>
-
-                            <div className="pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                              <button 
-                                onClick={() => {
-                                  toast.success('System settings saved successfully');
-                                }}
-                                className="w-full py-4 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
-                              >
-                                Save System Settings
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="bg-red-50 dark:bg-red-900/10 rounded-3xl p-6 border border-red-100 dark:border-red-900/30">
-                            <h4 className="font-bold text-red-800 dark:text-red-400 mb-2 flex items-center gap-2">
-                              <Trash2 className="w-5 h-5" />
-                              Danger Zone
-                            </h4>
-                            <p className="text-sm text-red-600 dark:text-red-300 mb-4">Actions here are permanent and cannot be undone.</p>
-                            <button 
-                              onClick={resetDatabase}
-                              disabled={isResettingDatabase}
-                              className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                              {isResettingDatabase ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Resetting...
-                                </>
-                              ) : (
-                                'Reset System Database'
-                              )}
-                            </button>
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>
@@ -2786,82 +2992,7 @@ const ProfileSheet: React.FC<{
                 </motion.div>
               )}
 
-              {view === 'publisher-profile' && (
-                <motion.div 
-                  key="publisher-profile"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-black"
-                >
-                  {renderHeader('Publisher Profile')}
-                  <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-8 no-scrollbar">
-                    {isLoadingUsers ? (
-                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                        <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                        <p className="text-zinc-500 font-medium tracking-wide">Loading profile...</p>
-                      </div>
-                    ) : allUsers.find(u => u.id === selectedPublisherId) ? (
-                      <>
-                        {/* Publisher Info */}
-                        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 shadow-sm border border-zinc-100 dark:border-zinc-800 text-center space-y-4">
-                          <div className="w-24 h-24 rounded-full bg-zinc-100 dark:bg-zinc-800 mx-auto overflow-hidden border-4 border-white dark:border-zinc-900 shadow-xl">
-                            {allUsers.find(u => u.id === selectedPublisherId)?.photoURL ? (
-                              <img src={allUsers.find(u => u.id === selectedPublisherId)?.photoURL} alt="Publisher" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-4xl">👤</div>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">
-                              {allUsers.find(u => u.id === selectedPublisherId)?.firstName} {allUsers.find(u => u.id === selectedPublisherId)?.lastName}
-                            </h3>
-                            <p className="text-zinc-500 font-medium">@{allUsers.find(u => u.id === selectedPublisherId)?.username || 'publisher'}</p>
-                          </div>
-                        </div>
 
-                        {/* Publisher's Apps */}
-                        <div className="space-y-4">
-                          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest px-4">Apps & Games</h3>
-                          <div className="grid grid-cols-1 gap-4">
-                            {apps.filter(app => app.publisherId === selectedPublisherId).map(app => (
-                              <div 
-                                key={app.id} 
-                                onClick={() => {
-                                  setSelectedApp(app);
-                                  setIsPreviewOpen(true);
-                                }}
-                                className="bg-white dark:bg-zinc-900 rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-zinc-100 dark:border-zinc-800 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                              >
-                                <img src={app.iconUrl} alt={app.name} className="w-16 h-16 rounded-2xl object-cover shadow-md" />
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-bold text-zinc-900 dark:text-white truncate">{app.name}</h4>
-                                  <p className="text-xs text-zinc-500">{app.category}</p>
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                    <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300">{app.rating}</span>
-                                  </div>
-                                </div>
-                                <button className="px-4 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-blue-500 font-bold text-xs">View</button>
-                              </div>
-                            ))}
-                            {apps.filter(app => app.publisherId === selectedPublisherId).length === 0 && (
-                              <div className="text-center py-12 text-zinc-500">No apps published by this user yet.</div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-20 space-y-4">
-                        <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto">
-                          <User className="w-10 h-10 text-zinc-300" />
-                        </div>
-                        <p className="text-zinc-500 font-medium">Publisher profile not found.</p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
 
               {view === 'settings' && (
                 <motion.div 
@@ -3194,10 +3325,12 @@ const ProfileSheet: React.FC<{
                         <p className="text-sm text-zinc-500 mt-1">Active Subscription</p>
                       </div>
                       <div className="py-4 border-y border-zinc-100 dark:border-zinc-800">
-                        <p className="text-2xl font-bold text-zinc-900 dark:text-white">$9.99<span className="text-sm font-normal text-zinc-500">/month</span></p>
-                        <p className="text-xs text-zinc-400 mt-1">Next billing date: Apr 15, 2026</p>
+                        <p className="text-2xl font-bold text-zinc-900 dark:text-white">Premium</p>
                       </div>
-                      <button className="w-full py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold">
+                      <button 
+                        onClick={() => toast.info('Coming Soon')}
+                        className="w-full py-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold"
+                      >
                         Manage Subscription
                       </button>
                     </div>
@@ -3381,6 +3514,10 @@ export default function App() {
   const [purchasedAppIds, setPurchasedAppIds] = useState<Set<string>>(new Set());
   const [downloadingApps, setDownloadingApps] = useState<Record<string, number>>({});
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPublisherPageOpen, setIsPublisherPageOpen] = useState(false);
+  const [isSystemPortalOpen, setIsSystemPortalOpen] = useState(false);
+  const [selectedPublisher, setSelectedPublisher] = useState<any | null>(null);
+  const [isLoadingPublisher, setIsLoadingPublisher] = useState(false);
   const [authenticatingApp, setAuthenticatingApp] = useState<AppItem | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [apps, setApps] = useState<AppItem[]>([]);
@@ -3390,6 +3527,193 @@ export default function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [view, setView] = useState<'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile'>('main');
   const [selectedPublisherId, setSelectedPublisherId] = useState<string | null>(null);
+
+  // Admin States
+  const [uploadName, setUploadName] = useState('');
+  const [uploadIsGame, setUploadIsGame] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState('');
+  const [uploadIconUrl, setUploadIconUrl] = useState('');
+  const [uploadMainThumbnail, setUploadMainThumbnail] = useState('');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadSize, setUploadSize] = useState('');
+  const [uploadVersion, setUploadVersion] = useState('');
+  const [uploadDownloadUrl, setUploadDownloadUrl] = useState('');
+  const [uploadScreenshots, setUploadScreenshots] = useState<string[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<'draft' | 'published'>('published');
+  const [editingApp, setEditingApp] = useState<AppItem | null>(null);
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'publish' | 'manage' | 'users' | 'settings' | 'today'>('dashboard');
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminFilterStatus, setAdminFilterStatus] = useState<'all' | 'published' | 'draft' | 'archived'>('all');
+  const [appToDelete, setAppToDelete] = useState<AppItem | null>(null);
+  const [isResettingDatabase, setIsResettingDatabase] = useState(false);
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
+  const [tempPasscode, setTempPasscode] = useState('');
+  const [passcodeStep, setPasscodeStep] = useState<'enter' | 'confirm'>('enter');
+  const [firstPasscode, setFirstPasscode] = useState('');
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [activities, setActivities] = useState<any[]>([]);
+
+  const logActivity = async (type: string, message: string) => {
+    try {
+      await addDoc(collection(db, 'activities'), {
+        type,
+        message,
+        timestamp: new Date().toISOString(),
+        userId: firebaseUser?.uid || 'system',
+        userName: userProfile?.username || 'System'
+      });
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  };
+
+  const fixPublisherData = async () => {
+    if (!firebaseUser || !userProfile) return;
+    const appsRef = collection(db, 'apps');
+    const snapshot = await getDocs(appsRef);
+    let fixedCount = 0;
+    
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      if (!data.publisherId) {
+        await updateDoc(doc(db, 'apps', docSnap.id), {
+          publisherId: firebaseUser.uid,
+          publisherName: `${userProfile.firstName} ${userProfile.lastName}`
+        });
+        fixedCount++;
+      }
+    }
+    
+    if (fixedCount > 0) {
+      toast.success(`Fixed publisher data for ${fixedCount} apps`);
+      // Refresh apps list
+      const updatedApps = await getDocs(appsRef);
+      setApps(updatedApps.docs.map(d => ({ id: d.id, ...d.data() } as AppItem)));
+    } else {
+      toast.info('No apps missing publisher data found');
+    }
+  };
+
+  const clearActivities = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'activities'));
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      toast.success('Activity logs cleared');
+      logActivity('system_cleanup', 'Cleared all activity logs');
+    } catch (error) {
+      toast.error('Failed to clear activity logs');
+    }
+  };
+
+  const resetDatabase = async () => {
+    if (!window.confirm('Are you absolutely sure? This will wipe ALL applications and activity logs.')) return;
+    
+    setIsResettingDatabase(true);
+    try {
+      // Clear Apps
+      const appsSnapshot = await getDocs(collection(db, 'apps'));
+      const appDeletes = appsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      
+      // Clear Activities
+      const activitiesSnapshot = await getDocs(collection(db, 'activities'));
+      const activityDeletes = activitiesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      
+      await Promise.all([...appDeletes, ...activityDeletes]);
+      
+      toast.success('System database reset complete');
+      logActivity('system_reset', 'System database reset performed (All apps and logs cleared)');
+      
+      setTimeout(() => {
+        setIsResettingDatabase(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Reset error:', error);
+      toast.error('Failed to reset database');
+      setIsResettingDatabase(false);
+    }
+  };
+
+  const seedSampleData = async () => {
+    setIsLoadingApps(true);
+    try {
+      const sampleApps = [
+        {
+          name: "Lumina Edit",
+          category: "Photo & Video",
+          rating: 4.8,
+          iconUrl: "https://api.dicebear.com/7.x/shapes/svg?seed=lumina",
+          isGame: false,
+          developer: "Visionary Labs",
+          description: "Professional-grade photo editing with AI-powered enhancements and real-time filters.",
+          size: "124 MB",
+          version: "2.4.1",
+          downloads: 12500,
+          screenshots: ["https://picsum.photos/seed/l1/1920/1080", "https://picsum.photos/seed/l2/1920/1080"],
+          downloadUrl: "#"
+        },
+        {
+          name: "Void Runner",
+          category: "Games",
+          rating: 4.9,
+          iconUrl: "https://api.dicebear.com/7.x/shapes/svg?seed=void",
+          isGame: true,
+          developer: "Nebula Games",
+          description: "An endless runner set in a neon-drenched cyberpunk future. Fast-paced action and synthwave beats.",
+          size: "450 MB",
+          version: "1.0.5",
+          downloads: 85000,
+          screenshots: ["https://picsum.photos/seed/v1/1920/1080", "https://picsum.photos/seed/v2/1920/1080"],
+          downloadUrl: "#"
+        },
+        {
+          name: "Zenith Notes",
+          category: "Productivity",
+          rating: 4.7,
+          iconUrl: "https://api.dicebear.com/7.x/shapes/svg?seed=zenith",
+          isGame: false,
+          developer: "Focus Flow",
+          description: "Minimalist note-taking app with markdown support, cloud sync, and focus mode.",
+          size: "45 MB",
+          version: "3.2.0",
+          downloads: 50000,
+          screenshots: ["https://picsum.photos/seed/z1/1920/1080", "https://picsum.photos/seed/z2/1920/1080"],
+          downloadUrl: "#"
+        }
+      ];
+
+      for (const app of sampleApps) {
+        await addDoc(collection(db, 'apps'), {
+          ...app,
+          publisherId: firebaseUser?.uid || 'system',
+          publisherName: userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'System Publisher',
+          createdAt: Date.now(),
+          status: 'published'
+        });
+      }
+
+      toast.success('Sample data seeded successfully');
+      logActivity('system_seed', 'Seeded sample application data');
+    } catch (error) {
+      console.error('Error seeding data:', error);
+      toast.error('Failed to seed sample data');
+    } finally {
+      setIsLoadingApps(false);
+    }
+  };
+
+  const uploadApp = async (appData: any) => {
+    if (!isAdmin || !firebaseUser || !userProfile) return;
+    await addDoc(collection(db, 'apps'), {
+      ...appData,
+      publisherId: firebaseUser.uid,
+      publisherName: `${userProfile.firstName} ${userProfile.lastName}`,
+      createdAt: Date.now()
+    });
+  };
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [storeName, setStoreName] = useState('App Store');
@@ -3500,6 +3824,44 @@ export default function App() {
       setIsAdmin(false);
     }
   }, [firebaseUser]);
+
+  useEffect(() => {
+    let unsubscribeActivities: (() => void) | undefined;
+    if (isSystemPortalOpen) {
+      setIsLoadingUsers(true);
+      getDocs(collection(db, 'users')).then(snapshot => {
+        setTotalUsers(snapshot.size);
+        setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setIsLoadingUsers(false);
+      }).catch(err => {
+        console.error(err);
+        setIsLoadingUsers(false);
+      });
+
+      const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(10));
+      unsubscribeActivities = onSnapshot(q, (snapshot) => {
+        setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+    }
+
+    return () => {
+      if (unsubscribeActivities) unsubscribeActivities();
+    };
+  }, [isSystemPortalOpen]);
+
+  useEffect(() => {
+    if (isPublisherPageOpen && selectedPublisherId) {
+      setIsLoadingPublisher(true);
+      getDoc(doc(db, 'users', selectedPublisherId)).then(snapshot => {
+        if (snapshot.exists()) {
+          setSelectedPublisher({ id: snapshot.id, ...snapshot.data() });
+        }
+        setIsLoadingPublisher(false);
+      }).catch(() => {
+        setIsLoadingPublisher(false);
+      });
+    }
+  }, [isPublisherPageOpen, selectedPublisherId]);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
@@ -3731,7 +4093,77 @@ export default function App() {
           {/* Main Content */}
           <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-24 md:pb-6">
         <AnimatePresence mode="wait">
-          {activeTab === 'Search' ? (
+          {isPublisherPageOpen ? (
+            <motion.div 
+              key="publisher-page"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-8"
+            >
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setIsPublisherPageOpen(false)}
+                  className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors text-blue-500"
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Publisher</h1>
+              </div>
+
+              {isLoadingPublisher ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                  <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                  <p className="text-zinc-500 font-medium tracking-wide">Loading profile...</p>
+                </div>
+              ) : selectedPublisher ? (
+                <div className="space-y-10">
+                  {/* Publisher Info */}
+                  <div className="flex flex-col items-center justify-center p-8 bg-zinc-100 dark:bg-zinc-900 rounded-3xl space-y-4 shadow-sm border border-zinc-100 dark:border-zinc-800">
+                    <div className="w-24 h-24 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden border-4 border-white dark:border-zinc-950 shadow-xl">
+                      {selectedPublisher.photoURL ? (
+                        <img src={selectedPublisher.photoURL} alt="Publisher" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl">👤</div>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
+                        {selectedPublisher.firstName} {selectedPublisher.lastName}
+                      </h2>
+                      <p className="text-zinc-500 font-medium">{selectedPublisher.username || 'publisher'}</p>
+                    </div>
+                  </div>
+
+                  {/* Publisher's Apps */}
+                  <div className="space-y-6">
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Apps & Games</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
+                      {apps.filter(app => app.publisherId === selectedPublisherId).length > 0 ? (
+                        apps.filter(app => app.publisherId === selectedPublisherId).map(app => (
+                          <PlayStoreCard 
+                            key={app.id} 
+                            app={app} 
+                            onPreview={(app) => {
+                              setSelectedApp(app);
+                              setIsPreviewOpen(true);
+                            }}
+                          />
+                        ))
+                      ) : (
+                        <div className="col-span-full py-12 text-center text-zinc-500 flex flex-col items-center space-y-3">
+                          <Package className="w-12 h-12 opacity-20" />
+                          <p>No apps published yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-20 text-zinc-500">Publisher not found.</div>
+              )}
+            </motion.div>
+          ) : activeTab === 'Search' ? (
             <motion.div 
               key="search"
               initial={{ opacity: 0, y: 10 }}
@@ -3753,27 +4185,21 @@ export default function App() {
               
               <div className="space-y-4">
                 <h2 className="text-xl font-bold">Discover</h2>
-                <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory no-scrollbar">
+                <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 no-scrollbar">
                   {isLoadingApps ? (
                     Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="min-w-[85vw] sm:min-w-[320px] snap-start">
-                        <SkeletonAppCard />
-                      </div>
+                      <SkeletonPlayStoreCard key={i} />
                     ))
                   ) : (
-                    apps.slice(0, 6).map(app => (
-                      <div key={app.id} className="min-w-[85vw] sm:min-w-[320px] snap-start">
-                        <AppCard 
-                          app={app} 
-                          isPurchased={purchasedAppIds.has(app.id)}
-                          downloadProgress={downloadingApps[app.id]}
-                          onGet={handleGetApp}
-                          onPreview={(app) => {
-                            setSelectedApp(app);
-                            setIsPreviewOpen(true);
-                          }}
-                        />
-                      </div>
+                    apps.slice(0, 8).map(app => (
+                      <PlayStoreCard 
+                        key={app.id} 
+                        app={app} 
+                        onPreview={(app) => {
+                          setSelectedApp(app);
+                          setIsPreviewOpen(true);
+                        }}
+                      />
                     ))
                   )}
                 </div>
@@ -3833,69 +4259,57 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-8"
             >
-              <div className="flex items-end justify-between">
-                <h1 className="text-4xl font-bold">{activeTab}</h1>
+              <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">{activeTab}</h1>
               </div>
 
               {/* Category Filters */}
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 no-scrollbar">
+              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 no-scrollbar">
                 {['All', 'Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map((category) => (
                   <button 
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${selectedCategory === category ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${selectedCategory === category ? 'bg-zinc-900 border-zinc-900 text-white dark:bg-white dark:border-white dark:text-zinc-900' : 'bg-transparent border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'}`}
                   >
                     {category}
                   </button>
                 ))}
               </div>
 
-              {/* Featured Section */}
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Recommended for you</h2>
+                </div>
                 {isLoadingApps ? (
-                  <SkeletonFeaturedCard />
-                ) : filteredApps[0] && (
-                  <FeaturedCard 
-                    app={filteredApps[0]} 
-                    isPurchased={purchasedAppIds.has(filteredApps[0].id)}
-                    downloadProgress={downloadingApps[filteredApps[0].id]}
-                    onGet={handleGetApp}
-                    onPreview={(app) => {
-                      setSelectedApp(app);
-                      setIsPreviewOpen(true);
-                    }}
-                  />
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <SkeletonPlayStoreCard key={i} />
+                    ))}
+                  </div>
+                ) : filteredApps.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
+                    {filteredApps.map(app => (
+                      <PlayStoreCard 
+                        key={app.id} 
+                        app={app} 
+                        onPreview={(app) => {
+                          setSelectedApp(app);
+                          setIsPreviewOpen(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-4">
+                    <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center">
+                      <Package className="w-10 h-10 opacity-20" />
+                    </div>
+                    <p className="font-medium text-lg">No App found</p>
+                  </div>
                 )}
               </div>
 
-              {/* List Section */}
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold">Popular {activeTab}</h2>
-                <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory no-scrollbar">
-                  {isLoadingApps ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="min-w-[85vw] sm:min-w-[320px] snap-start">
-                        <SkeletonAppCard />
-                      </div>
-                    ))
-                  ) : (
-                    filteredApps.slice(1).map(app => (
-                      <div key={app.id} className="min-w-[85vw] sm:min-w-[320px] snap-start">
-                        <AppCard 
-                          app={app} 
-                          isPurchased={purchasedAppIds.has(app.id)}
-                          downloadProgress={downloadingApps[app.id]}
-                          onGet={handleGetApp}
-                          onPreview={(app) => {
-                            setSelectedApp(app);
-                            setIsPreviewOpen(true);
-                          }}
-                        />
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              {/* More Sections can be added here like "Top Charts" etc */}
             </motion.div>
           )}
         </AnimatePresence>
@@ -3918,8 +4332,7 @@ export default function App() {
         onOpenPublisherProfile={(id) => {
           setSelectedPublisherId(id);
           setIsPreviewOpen(false);
-          setView('publisher-profile');
-          setIsProfileOpen(true);
+          setIsPublisherPageOpen(true);
         }}
       />
 
@@ -3957,6 +4370,7 @@ export default function App() {
         setSelectedApp={setSelectedApp}
         setIsPreviewOpen={setIsPreviewOpen}
         setApps={setApps}
+        setIsSystemPortalOpen={setIsSystemPortalOpen}
       />
 
       {/* Full Screen Search Page */}
@@ -3999,15 +4413,12 @@ export default function App() {
                 {searchQuery ? (
                   <div className="space-y-4">
                     <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Results for "{searchQuery}"</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-8">
                       {searchResults.length > 0 ? (
                         searchResults.map(app => (
-                          <AppCard 
+                          <PlayStoreCard 
                             key={app.id} 
                             app={app} 
-                            isPurchased={purchasedAppIds.has(app.id)}
-                            downloadProgress={downloadingApps[app.id]}
-                            onGet={handleGetApp}
                             onPreview={(app) => {
                               setSelectedApp(app);
                               setIsPreviewOpen(true);
@@ -4016,8 +4427,12 @@ export default function App() {
                           />
                         ))
                       ) : (
-                        <div className="col-span-full py-12 text-center text-zinc-500">
-                          No results found for "{searchQuery}"
+                        <div className="col-span-full py-20 flex flex-col items-center justify-center text-zinc-400 space-y-4">
+                          <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center">
+                            <Package className="w-10 h-10 opacity-20" />
+                          </div>
+                          <p className="font-medium text-lg">No App found</p>
+                          <p className="text-sm">Try searching for something else</p>
                         </div>
                       )}
                     </div>
@@ -4040,20 +4455,16 @@ export default function App() {
                     </div>
                     <div className="space-y-4">
                       <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Suggested for You</h2>
-                      <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory no-scrollbar">
-                        {apps.slice(0, 3).map(app => (
-                          <div key={app.id} className="min-w-[85vw] sm:min-w-[320px] snap-start">
-                            <AppCard 
-                              app={app} 
-                              isPurchased={purchasedAppIds.has(app.id)}
-                              downloadProgress={downloadingApps[app.id]}
-                              onGet={handleGetApp}
-                              onPreview={(app) => {
-                                setSelectedApp(app);
-                                setIsPreviewOpen(true);
-                              }}
-                            />
-                          </div>
+                      <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 no-scrollbar">
+                        {apps.slice(0, 5).map(app => (
+                          <PlayStoreCard 
+                            key={app.id} 
+                            app={app} 
+                            onPreview={(app) => {
+                              setSelectedApp(app);
+                              setIsPreviewOpen(true);
+                            }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -4078,6 +4489,68 @@ export default function App() {
         isFaceIdEnabled={isFaceIdEnabled}
         isTouchIdEnabled={isTouchIdEnabled}
         app={authenticatingApp}
+      />
+
+      <SystemPortal 
+        isOpen={isSystemPortalOpen}
+        onClose={() => setIsSystemPortalOpen(false)}
+        apps={apps}
+        setApps={setApps}
+        isTodayEnabled={isTodayEnabled}
+        setIsTodayEnabled={setIsTodayEnabled}
+        todayApps={todayApps}
+        setTodayApps={setTodayApps}
+        storeName={storeName}
+        setStoreName={setStoreName}
+        isMaintenanceMode={isMaintenanceMode}
+        setIsMaintenanceMode={setIsMaintenanceMode}
+        totalUsers={allUsers.length}
+        allUsers={allUsers}
+        isLoadingUsers={isLoadingUsers}
+        activities={activities}
+        firebaseUser={firebaseUser}
+        userProfile={userProfile}
+        logActivity={logActivity}
+        fixPublisherData={fixPublisherData}
+        clearActivities={clearActivities}
+        resetDatabase={resetDatabase}
+        seedSampleData={seedSampleData}
+        uploadApp={uploadApp}
+        adminTab={adminTab}
+        setAdminTab={setAdminTab}
+        uploadName={uploadName}
+        setUploadName={setUploadName}
+        uploadIsGame={uploadIsGame}
+        setUploadIsGame={setUploadIsGame}
+        uploadCategory={uploadCategory}
+        setUploadCategory={setUploadCategory}
+        uploadIconUrl={uploadIconUrl}
+        setUploadIconUrl={setUploadIconUrl}
+        uploadMainThumbnail={uploadMainThumbnail}
+        setUploadMainThumbnail={setUploadMainThumbnail}
+        uploadDescription={uploadDescription}
+        setUploadDescription={setUploadDescription}
+        uploadSize={uploadSize}
+        setUploadSize={setUploadSize}
+        uploadVersion={uploadVersion}
+        setUploadVersion={setUploadVersion}
+        uploadDownloadUrl={uploadDownloadUrl}
+        setUploadDownloadUrl={setUploadDownloadUrl}
+        uploadScreenshots={uploadScreenshots}
+        setUploadScreenshots={setUploadScreenshots}
+        uploadStatus={uploadStatus}
+        setUploadStatus={setUploadStatus}
+        editingApp={editingApp}
+        setEditingApp={setEditingApp}
+        expandedAppId={expandedAppId}
+        setExpandedAppId={setExpandedAppId}
+        adminSearchQuery={adminSearchQuery}
+        setAdminSearchQuery={setAdminSearchQuery}
+        adminFilterStatus={adminFilterStatus}
+        setAdminFilterStatus={setAdminFilterStatus}
+        appToDelete={appToDelete}
+        setAppToDelete={setAppToDelete}
+        isResettingDatabase={isResettingDatabase}
       />
     </div>
   );
