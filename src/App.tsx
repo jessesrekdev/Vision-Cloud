@@ -1191,11 +1191,11 @@ const SystemPortal: React.FC<{
                 <div className="flex gap-1 p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-[28px] border border-zinc-200/50 dark:border-zinc-800/50 overflow-x-auto no-scrollbar max-w-full">
                   {[
                     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
-                    { id: 'publish', label: 'Deploy', icon: PlusCircle },
-                    { id: 'manage', label: 'Modules', icon: ListFilter },
-                    { id: 'users', label: 'Identity', icon: Users },
-                    { id: 'today', label: 'Stream', icon: Star },
-                    { id: 'settings', label: 'Nodes', icon: Settings },
+                    { id: 'publish', label: 'Publish App', icon: PlusCircle },
+                    { id: 'manage', label: 'Manage Apps', icon: ListFilter },
+                    { id: 'users', label: 'Users', icon: Users },
+                    { id: 'today', label: 'Today Page', icon: Star },
+                    { id: 'settings', label: 'System Settings', icon: Settings },
                   ].map((tab) => (
                     <button 
                       key={tab.id}
@@ -1223,8 +1223,8 @@ const SystemPortal: React.FC<{
                 <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-10">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Ecosystem Pulse</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Real-time heuristics and network topology.</p>
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Platform Dashboard</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Real-time platform metrics and status.</p>
                   </div>
                   <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-5 py-2.5 rounded-[20px] border border-zinc-100 dark:border-zinc-800 shadow-sm transition-transform hover:translate-y-[-2px]">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
@@ -1236,7 +1236,7 @@ const SystemPortal: React.FC<{
                   {[
                     { label: 'Deployed Apps', val: apps.length, icon: Package, color: 'blue', trend: '+12%', sub: 'this week' },
                     { label: 'Store Capacity', val: apps.reduce((acc, app) => acc + (app.downloads || 0), 0).toLocaleString(), icon: ArrowDownToLine, color: 'green', trend: 'Active', sub: 'Nodes' },
-                    { label: 'Active Identity', val: totalUsers, icon: Users, color: 'purple', trend: 'Global', sub: 'Registry' }
+                    { label: 'Active Users', val: totalUsers, icon: Users, color: 'purple', trend: 'Global', sub: 'Registry' }
                   ].map((metric) => (
                     <div key={metric.label} className="group bg-white dark:bg-zinc-900 p-8 rounded-[40px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 transition-all hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)] hover:border-zinc-200 dark:hover:border-zinc-700">
                       <div className="flex items-center justify-between mb-8">
@@ -1310,7 +1310,7 @@ const SystemPortal: React.FC<{
                         <Zap className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">Node Topography</h4>
+                        <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">Service Status</h4>
                         <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Real-time Latency Check</p>
                       </div>
                     </div>
@@ -1339,11 +1339,11 @@ const SystemPortal: React.FC<{
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Deploy Module</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Inject new artifacts into the global ecosystem.</p>
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Publish App</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Add a new application to the store.</p>
                   </div>
                   <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 px-6 py-3 rounded-[24px] border border-zinc-100 dark:border-zinc-800 shadow-sm">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Visibility Context</span>
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Visibility</span>
                     <select value={uploadStatus} onChange={(e) => setUploadStatus(e.target.value as any)} className="bg-transparent text-sm font-black text-zinc-900 dark:text-white outline-none cursor-pointer">
                       <option value="published">Production</option>
                       <option value="draft">Sandbox</option>
@@ -1356,21 +1356,21 @@ const SystemPortal: React.FC<{
                     <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 space-y-10">
                       <div className="space-y-8">
                         <div>
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-4 block ml-2">Module Identity</label>
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-4 block ml-2">App Name</label>
                           <input type="text" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Friendly Application Name" className="w-full text-3xl font-black p-8 rounded-[32px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" />
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <div className="p-2.5 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-[28px] flex gap-2 border border-zinc-200/50 dark:border-zinc-700/50">
-                             <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${!uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Software</button>
-                             <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Entertainment</button>
+                             <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${!uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>App</button>
+                             <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Game</button>
                            </div>
                            <select 
                             value={uploadCategory} 
                             onChange={(e) => setUploadCategory(e.target.value)} 
                             className="w-full p-5 rounded-[28px] font-bold bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all cursor-pointer"
                           >
-                            <option value="" disabled>Compute Domain</option>
+                            <option value="" disabled>Category</option>
                             {['Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map((cat) => (
                               <option key={cat} value={cat}>{cat}</option>
                             ))}
@@ -1379,12 +1379,12 @@ const SystemPortal: React.FC<{
                       </div>
  
                       <div className="space-y-8 pt-10 border-t border-zinc-100 dark:border-zinc-900">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] block ml-2">Data Source Protocol</label>
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] block ml-2">Download Link</label>
                         <div className="relative group">
                           <div className="absolute left-7 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors">
                             <Link2 className="w-5 h-5" />
                           </div>
-                          <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://cdn.resource.node/artifact.zip" className="w-full pl-16 p-6 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:font-medium placeholder:text-zinc-400" />
+                          <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://example.com/app.zip" className="w-full pl-16 p-6 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:font-medium placeholder:text-zinc-400" />
                         </div>
                         <div className="grid grid-cols-2 gap-6">
                           <input type="text" value={uploadSize} onChange={(e) => setUploadSize(e.target.value)} placeholder="Payload size (45.2 MB)" className="w-full p-5 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:text-zinc-400" />
@@ -1394,10 +1394,10 @@ const SystemPortal: React.FC<{
  
                       <div className="space-y-6 pt-10 border-t border-zinc-100 dark:border-zinc-900">
                         <div className="flex items-center justify-between px-2">
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Release Documentation</label>
-                          <span className="text-[9px] font-black text-blue-500 border border-blue-500/20 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full">MD Standard V2</span>
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Description</label>
+                          <span className="text-[9px] font-black text-blue-500 border border-blue-500/20 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full">Markdown Supported</span>
                         </div>
-                        <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Construct detailed module description here..." rows={10} className="w-full p-8 rounded-[36px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-medium resize-none leading-relaxed placeholder:text-zinc-400" />
+                        <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Type the app description here..." rows={10} className="w-full p-8 rounded-[36px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-medium resize-none leading-relaxed placeholder:text-zinc-400" />
                       </div>
                     </div>
                   </div>
@@ -1407,13 +1407,13 @@ const SystemPortal: React.FC<{
                       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-8 block text-center">Visual Assets</label>
                       <div className="space-y-10">
                         <div className="space-y-4">
-                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Symbol Identity</p>
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">App Icon</p>
                           <div className="flex justify-center">
                             <ImageUploader onUpload={setUploadIconUrl} currentIconUrl={uploadIconUrl} />
                           </div>
                         </div>
                         <div className="space-y-4">
-                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Hero Frame</p>
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Featured Graphic</p>
                           <div className="flex justify-center">
                             <ImageUploader onUpload={setUploadMainThumbnail} currentIconUrl={uploadMainThumbnail} />
                           </div>
@@ -1422,14 +1422,14 @@ const SystemPortal: React.FC<{
                     </div>
  
                     <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-6 block text-center">Environment Captures</label>
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-6 block text-center">Screenshots</label>
                       <ScreenshotUploader onUpload={setUploadScreenshots} />
                     </div>
  
                     <button 
                       onClick={async () => {
                         if (!uploadName || !uploadCategory || !uploadIconUrl || !uploadDownloadUrl) {
-                          toast.error('Identity collision: missing required metadata');
+                          toast.error('Missing required information');
                           return;
                         }
                         try {
@@ -1448,20 +1448,20 @@ const SystemPortal: React.FC<{
                             screenshots: uploadScreenshots,
                             status: uploadStatus
                           });
-                          toast.success('Module successfully deployed to production');
-                          logActivity('app_published', `Deployed: ${uploadName}`);
+                          toast.success('App successfully published');
+                          logActivity('app_published', `Published: ${uploadName}`);
                           setUploadName(''); setUploadCategory(''); setUploadIconUrl(''); setUploadMainThumbnail('');
                           setUploadDescription(''); setUploadSize(''); setUploadVersion(''); setUploadDownloadUrl('');
                           setUploadScreenshots([]); setUploadStatus('published');
                           onClose();
                         } catch (error) {
-                          toast.error('Deployment failure: Internal Node Error');
+                          toast.error('Failed to publish app');
                         }
                       }} 
                       className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[36px] font-black text-lg uppercase tracking-[0.15em] shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4 group"
                     >
                       <Zap className="w-6 h-6 fill-current group-hover:animate-pulse" />
-                      Deploy Module
+                      Publish App
                     </button>
                   </div>
                 </div>
@@ -1472,15 +1472,15 @@ const SystemPortal: React.FC<{
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
-                    <h3 className="text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Module Maintenance</h3>
-                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">Manage existing artifacts across the network.</p>
+                    <h3 className="text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Manage Apps</h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">Manage existing apps in the store.</p>
                   </div>
                   <div className="flex gap-4">
                     <div className="relative group min-w-[240px]">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                       <input 
                         type="text" 
-                        placeholder="Scan for modules..." 
+                        placeholder="Search apps..." 
                         value={adminSearchQuery}
                         onChange={(e) => setAdminSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-bold"
@@ -1518,7 +1518,7 @@ const SystemPortal: React.FC<{
                              </div>
                            </div>
                            <div>
-                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Identity Title</label>
+                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">App Name</label>
                              <input type="text" value={editingApp.name} onChange={(e) => setEditingApp({...editingApp, name: e.target.value})} className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold" />
                            </div>
                         </div>
@@ -1535,9 +1535,9 @@ const SystemPortal: React.FC<{
 
                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         {[
-                          { label: 'Compute Domain', val: editingApp.category, key: 'category' },
-                          { label: 'Artifact Size', val: editingApp.size, key: 'size' },
-                          { label: 'Revision ID', val: editingApp.version, key: 'version' },
+                          { label: 'Category', val: editingApp.category, key: 'category' },
+                          { label: 'Download Size', val: editingApp.size, key: 'size' },
+                          { label: 'Version', val: editingApp.version, key: 'version' },
                           { label: 'Status', val: editingApp.status, key: 'status', type: 'select' },
                         ].map(field => (
                           <div key={field.key}>
@@ -1556,7 +1556,7 @@ const SystemPortal: React.FC<{
                      </div>
 
                      <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800">
-                        <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block">Captures Ecosystem</label>
+                        <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block">App Screenshots</label>
                         <ScreenshotUploader initialScreenshots={editingApp.screenshots || []} onUpload={(urls) => setEditingApp({...editingApp, screenshots: urls})} />
                      </div>
 
@@ -1565,8 +1565,8 @@ const SystemPortal: React.FC<{
                         <button 
                           onClick={async () => {
                             await updateDoc(doc(db, 'apps', editingApp.id), { ...editingApp });
-                            toast.success('Module successfully reconfiguration');
-                            logActivity('app_updated', `Reconfigured: ${editingApp.name}`);
+                            toast.success('App successfully updated');
+                            logActivity('app_updated', `Updated: ${editingApp.name}`);
                             setEditingApp(null);
                           }} 
                           className="flex-1 py-5 rounded-[24px] bg-blue-600 text-white font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all"
@@ -1584,8 +1584,8 @@ const SystemPortal: React.FC<{
                              <Trash2 className="w-6 h-6" />
                            </div>
                            <div>
-                             <h4 className="font-black text-red-800 dark:text-red-400">Decommission Artifact: {appToDelete.name}?</h4>
-                             <p className="text-sm font-medium text-red-600 dark:text-red-300">This action will permanently purge the binary record.</p>
+                             <h4 className="font-black text-red-800 dark:text-red-400">Delete App: {appToDelete.name}?</h4>
+                             <p className="text-sm font-medium text-red-600 dark:text-red-300">This action will permanently purge it from the store.</p>
                            </div>
                         </div>
                         <div className="flex gap-3">
@@ -1593,13 +1593,13 @@ const SystemPortal: React.FC<{
                           <button onClick={async () => {
                             try {
                               await deleteDoc(doc(db, 'apps', appToDelete.id));
-                              toast.success('Module purged from existence');
-                              logActivity('app_deleted', `Purged: ${appToDelete.name}`);
+                              toast.success('App deleted successfully');
+                              logActivity('app_deleted', `Deleted: ${appToDelete.name}`);
                               setAppToDelete(null);
                             } catch (error) {
-                              toast.error('Purge failure: Logic Integrity Error');
+                              toast.error('Failed to delete app');
                             }
-                          }} className="px-6 py-3 bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20">Purge Record</button>
+                          }} className="px-6 py-3 bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20">Delete App</button>
                         </div>
                       </motion.div>
                     )}
@@ -1651,11 +1651,11 @@ const SystemPortal: React.FC<{
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Identity Registry</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Global directory of authenticated network participants.</p>
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Users</h3>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Global directory of registered users.</p>
                   </div>
                   <div className="bg-white dark:bg-zinc-900 px-8 py-4 rounded-[28px] border border-zinc-100 dark:border-zinc-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)]">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-1">Live Records</span>
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-1">Total Users</span>
                     <span className="text-3xl font-black text-zinc-900 dark:text-white tabular-nums">{totalUsers}</span>
                   </div>
                 </div>
@@ -1665,9 +1665,9 @@ const SystemPortal: React.FC<{
                     <table className="w-full text-left min-w-[800px]">
                       <thead>
                         <tr className="bg-zinc-50/50 dark:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800">
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Participant</th>
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Node Pointer</th>
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Communication</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">User</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Username</th>
+                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Email</th>
                           <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] text-right">Access Level</th>
                         </tr>
                       </thead>
@@ -1724,7 +1724,7 @@ const SystemPortal: React.FC<{
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
                   <div className="space-y-1">
                     <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Stream Curation</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Configure the featured artifact pipeline.</p>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Configure the featured apps list.</p>
                   </div>
                   <label className="flex items-center gap-6 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-8 py-5 rounded-[32px] shadow-sm cursor-pointer group transition-all hover:translate-y-[-2px]">
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] group-hover:text-blue-500 transition-colors">Broadcast Active</span>
@@ -1754,7 +1754,7 @@ const SystemPortal: React.FC<{
                        </div>
                        <h4 className="text-2xl font-black text-zinc-900 dark:text-white leading-none">Curation Pipeline</h4>
                     </div>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight leading-relaxed">Identity the most compelling artifacts for the landing stream. Slot 1 defaults to the <span className="text-zinc-900 dark:text-white font-black border-b-2 border-blue-500/30">Premiere Slot</span>, supporting high-fidelity visual engagement.</p>
+                    <p className="text-lg text-zinc-500 font-medium tracking-tight leading-relaxed">Select the most compelling apps for the landing stream. Slot 1 defaults to the <span className="text-zinc-900 dark:text-white font-black border-b-2 border-blue-500/30">Premiere Slot</span>, supporting high-fidelity visual engagement.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1797,7 +1797,7 @@ const SystemPortal: React.FC<{
                               let newTodayApps = [...todayApps];
                               if (e.target.checked) {
                                 if (newTodayApps.length >= 5) {
-                                  toast.error('Identity buffer overflow: max 5 slots active');
+                                  toast.error('Cannot feature more than 5 apps');
                                   return;
                                 }
                                 newTodayApps.push(app.id);
@@ -1819,20 +1819,20 @@ const SystemPortal: React.FC<{
             {adminTab === 'settings' && (
               <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-12 max-w-4xl mx-auto">
                 <div className="text-center space-y-3">
-                   <h3 className="text-5xl font-black text-zinc-900 dark:text-white tracking-widest uppercase">Nodes</h3>
-                   <p className="text-zinc-500 font-extrabold uppercase tracking-[0.4em] text-[11px] ml-1">Deep Level System Integration</p>
+                   <h3 className="text-5xl font-black text-zinc-900 dark:text-white tracking-widest uppercase">System Settings</h3>
+                   <p className="text-zinc-500 font-extrabold uppercase tracking-[0.4em] text-[11px] ml-1">Core App Store Configuration</p>
                 </div>
                 
                 <div className="bg-white dark:bg-zinc-900 rounded-[56px] p-12 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-16">
                   <div className="grid grid-cols-1 gap-12">
                     <div className="group space-y-4">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] ml-4 block transition-colors group-focus-within:text-blue-500">Global Node Identifier</label>
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] ml-4 block transition-colors group-focus-within:text-blue-500">Store Name</label>
                       <input 
                         type="text" 
                         value={storeName} 
                         onChange={(e) => setStoreName(e.target.value)}
                         className="w-full text-4xl font-black p-10 rounded-[40px] bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-blue-500/20 transition-all outline-none shadow-inner"
-                        placeholder="Define store identity"
+                        placeholder="Vision Cloud"
                       />
                     </div>
  
@@ -1865,7 +1865,7 @@ const SystemPortal: React.FC<{
                   </div>
  
                   <div className="pt-8">
-                    <button onClick={() => toast.success('Network state persist successfully')} className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[40px] font-black text-xl uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/10 hover:scale-[1.02] active:scale-95 transition-all">Persist Configuration</button>
+                    <button onClick={() => toast.success('Settings saved successfully')} className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[40px] font-black text-xl uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/10 hover:scale-[1.02] active:scale-95 transition-all">Save Changes</button>
                   </div>
                 </div>
  
@@ -1874,8 +1874,8 @@ const SystemPortal: React.FC<{
                     <Trash2 className="w-12 h-12" />
                   </div>
                   <div className="max-w-2xl mx-auto space-y-4">
-                    <h4 className="text-3xl font-black text-red-800 dark:text-red-400 tracking-tight uppercase">System Wipe</h4>
-                    <p className="text-sm font-bold text-red-600/70 dark:text-red-300/50 uppercase tracking-[0.2em] leading-relaxed">Warning: Irreversible procedure. Global erase will purge all artifacts, users, and telemetry records from the network.</p>
+                    <h4 className="text-3xl font-black text-red-800 dark:text-red-400 tracking-tight uppercase">Factory Reset</h4>
+                    <p className="text-sm font-bold text-red-600/70 dark:text-red-300/50 uppercase tracking-[0.2em] leading-relaxed">Warning: Irreversible procedure. Global erase will purge all apps, users, and logs from the system.</p>
                   </div>
                   <button 
                     onClick={resetDatabase}
