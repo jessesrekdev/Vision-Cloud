@@ -9,7 +9,9 @@
         "lastName": { "type": "string" },
         "username": { "type": "string" },
         "email": { "type": "string" },
-        "photoURL": { "type": "string" }
+        "photoURL": { "type": "string" },
+        "favorites": { "type": "array", "items": { "type": "string" } },
+        "purchasedAppIds": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["firstName", "lastName", "username", "email"]
     },
@@ -28,7 +30,12 @@
         "size": { "type": "string" },
         "version": { "type": "string" },
         "screenshots": { "type": "array", "items": { "type": "string" } },
-        "downloadUrl": { "type": "string" }
+        "downloadUrl": { "type": "string" },
+        "downloads": { "type": "number" },
+        "favoriteCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published", "archived"] },
+        "publisherId": { "type": "string" },
+        "createdAt": { "type": "number" }
       },
       "required": ["name", "category", "rating", "iconUrl", "isGame", "developer", "description", "size", "version"]
     },
@@ -44,6 +51,21 @@
         "userName": { "type": "string" }
       },
       "required": ["type", "message", "timestamp"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message in the community hub",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "replyTo": { "type": "string" },
+        "replyText": { "type": "string" }
+      },
+      "required": ["text", "userId", "userName", "createdAt"]
     }
   },
   "firestore": {
@@ -58,6 +80,10 @@
     "/activities/{activityId}": {
       "schema": "Activity",
       "description": "System activity logs"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Global community chat messages"
     }
   }
 }

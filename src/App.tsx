@@ -12,6 +12,7 @@ import { collection, addDoc, getDocs, query, where, setDoc, doc, getDoc, onSnaps
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ImageUploader } from './components/ImageUploader';
 import { ScreenshotUploader } from './components/ScreenshotUploader';
+import { UnauthorizedAdmin, SuperAdminDashboard } from './components/AdminRoute';
 import { 
   LayoutGrid, 
   Gamepad2, 
@@ -23,6 +24,8 @@ import {
   Star, 
   Download,
   Settings,
+  Share2,
+  Heart,
   CreditCard,
   Gift,
   Bell,
@@ -59,7 +62,18 @@ import {
   Zap,
   Link2,
   CloudAlert,
-  ShieldAlert
+  ShieldAlert,
+  WifiOff,
+  ExternalLink,
+  MessageSquare,
+  Smile,
+  Send,
+  MoreVertical,
+  Reply,
+  Copy,
+  Bold,
+  Italic,
+  Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Cropper from 'react-easy-crop';
@@ -89,7 +103,228 @@ interface AppItem {
   publisherId?: string;
   publisherName?: string;
   createdAt?: number;
+  favoriteCount?: number;
 }
+
+interface UserProfile {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  username: string;
+  photoURL?: string;
+  purchasedAppIds?: string[];
+  favorites?: string[];
+}
+
+interface Message {
+  id: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userPhotoUrl?: string;
+  createdAt: number;
+  replies?: Message[];
+  replyTo?: {
+    id: string;
+    userName: string;
+    text: string;
+  };
+}
+
+const OfflineDialog: React.FC<{ onReload: () => void }> = ({ onReload }) => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-md flex items-center justify-center p-6"
+  >
+    <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-8 max-w-sm w-full text-center space-y-6 shadow-2xl">
+      <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-full flex items-center justify-center mx-auto">
+        <WifiOff className="w-10 h-10 text-red-500" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">You're Offline</h3>
+        <p className="text-sm text-zinc-500 font-medium leading-relaxed">Vision Cloud requires an internet connection to sync your data and library.</p>
+      </div>
+      <button 
+        onClick={onReload}
+        className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
+      >
+        Reload Page
+      </button>
+    </div>
+  </motion.div>
+);
+
+const ChatRoom: React.FC<{ 
+  user: UserProfile | null; 
+  onLogin: () => void;
+  onClose: () => void;
+}> = ({ user, onLogin, onClose }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(100));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      setMessages(msgs.reverse());
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!user || !inputText.trim() || isSending) return;
+    setIsSending(true);
+    try {
+      await addDoc(collection(db, 'messages'), {
+        text: inputText.trim(),
+        userId: auth.currentUser?.uid,
+        userName: `${user.firstName} ${user.lastName}`,
+        userPhotoUrl: user.photoURL || '',
+        createdAt: Date.now(),
+        replyTo: replyingTo ? {
+          id: replyingTo.id,
+          userName: replyingTo.userName,
+          text: replyingTo.text
+        } : null
+      });
+      setInputText('');
+      setReplyingTo(null);
+    } catch (error) {
+      toast.error('Failed to send message');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'messages', id));
+      toast.success('Message deleted');
+    } catch (error) {
+      toast.error('Could not delete message');
+    }
+  };
+
+  const formatText = (text: string) => {
+    return text.split(' ').map((word, i) => {
+      if (word.startsWith('http')) {
+        return <a key={i} href={word} target="_blank" className="text-blue-400 underline">{word} </a>;
+      }
+      return word + ' ';
+    });
+  };
+
+  return (
+    <motion.div 
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      className="fixed inset-0 z-[150] bg-zinc-50 dark:bg-black flex flex-col"
+    >
+      <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <MessageSquare className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="font-black text-zinc-900 dark:text-white tracking-tight">Community Chat</h2>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Global Support & Feedback</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-zinc-50/50 dark:bg-zinc-900/20">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex flex-col ${msg.userId === auth.currentUser?.uid ? 'items-end' : 'items-start'}`}>
+            <div className={`max-w-[85%] rounded-3xl p-4 shadow-sm bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 ${msg.userId === auth.currentUser?.uid ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
+              {msg.replyTo && (
+                <div className="mb-2 p-2 bg-zinc-50 dark:bg-zinc-800 rounded-xl border-l-4 border-purple-500 text-[10px] text-zinc-500">
+                  <span className="font-black text-purple-500">{msg.replyTo.userName}</span>
+                  <p className="line-clamp-1">{msg.replyTo.text}</p>
+                </div>
+              )}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-black text-blue-500 uppercase tracking-wider">{msg.userName}</span>
+                <span className="text-[8px] text-zinc-400 font-bold">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
+                {formatText(msg.text)}
+              </p>
+              <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-zinc-50 dark:border-zinc-800/50">
+                <button onClick={() => setReplyingTo(msg)} className="text-zinc-400 hover:text-blue-500 transition-colors">
+                  <Reply className="w-3.5 h-3.5" />
+                </button>
+                {msg.userId === auth.currentUser?.uid && (
+                  <button onClick={() => deleteMessage(msg.id)} className="text-zinc-400 hover:text-red-500 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="p-4 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-900 pb-safe">
+        {replyingTo && (
+          <div className="mb-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-2xl flex items-center justify-between border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-bottom-2">
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest">Replying to {replyingTo.userName}</p>
+              <p className="text-xs text-zinc-500 line-clamp-1 italic">{replyingTo.text}</p>
+            </div>
+            <button onClick={() => setReplyingTo(null)} className="p-1 text-zinc-400"><X className="w-4 h-4" /></button>
+          </div>
+        )}
+        <div className="relative group">
+          {!user ? (
+            <div className="flex items-center justify-center py-3 bg-zinc-100 dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-200 dark:border-zinc-800">
+              <button 
+                onClick={onLogin}
+                className="flex items-center gap-2 text-sm font-black text-blue-500 uppercase tracking-widest hover:scale-105 transition-transform"
+              >
+                <Lock className="w-4 h-4" />
+                Sign in to Chat
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <input 
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Share your thoughts..."
+                  className="w-full px-6 py-4 bg-zinc-50 dark:bg-zinc-900 rounded-[24px] outline-none text-zinc-900 dark:text-white font-medium text-sm border-2 border-transparent focus:border-purple-500/20 transition-all placeholder:text-zinc-400"
+                />
+              </div>
+              <button 
+                onClick={handleSendMessage}
+                disabled={!inputText.trim() || isSending}
+                className="w-14 h-14 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full flex items-center justify-center shadow-xl shadow-black/10 active:scale-90 transition-all disabled:opacity-50"
+              >
+                <Send className="w-6 h-6" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 interface Reply {
   id: string;
@@ -110,14 +345,6 @@ interface Review {
   comment: string;
   createdAt: number;
   replies: Reply[];
-}
-
-interface UserProfile {
-  firstName: string;
-  lastName: string;
-  username: string;
-  email: string;
-  photoURL?: string;
 }
 
 // --- Mock Data ---
@@ -470,7 +697,9 @@ const PreviewPage: React.FC<{
   isAdmin: boolean;
   setView: (view: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile') => void;
   onOpenPublisherProfile: (publisherId: string) => void;
-}> = ({ app, isOpen, onClose, isPurchased, downloadProgress, onGet, firebaseUser, userProfile, setActiveTab, setIsProfileOpen, isAdmin, setView, onOpenPublisherProfile }) => {
+  onToggleFavorite: (appId: string) => void;
+  onRequireAuth: (action: () => void) => void;
+}> = ({ app, isOpen, onClose, isPurchased, downloadProgress, onGet, firebaseUser, userProfile, setActiveTab, setIsProfileOpen, isAdmin, setView, onOpenPublisherProfile, onToggleFavorite, onRequireAuth }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [ratingCount, setRatingCount] = useState<number>(0);
@@ -536,16 +765,10 @@ const PreviewPage: React.FC<{
   }, [isOpen, app]);
 
   const handleRate = (rating: number) => {
-    if (!firebaseUser) {
-      onClose();
-      setActiveTab('Today');
-      setView('auth');
-      setIsProfileOpen(true);
-      return;
-    }
-    setUserRating(rating);
-    setShowUndo(true);
-    const timeout = setTimeout(async () => {
+    onRequireAuth(() => {
+      setUserRating(rating);
+      setShowUndo(true);
+      const timeout = setTimeout(async () => {
       setShowUndo(false);
       // Permanently register rating
       if (firebaseUser && app) {
@@ -569,6 +792,7 @@ const PreviewPage: React.FC<{
       }
     }, 3000);
     setUndoTimeout(timeout);
+    });
   };
 
   const undoRating = () => {
@@ -694,7 +918,36 @@ const PreviewPage: React.FC<{
             <div className="flex-1 text-center">
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">App Preview</p>
             </div>
-            <div className="w-10" />
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => {
+                  if (app) {
+                    const url = window.location.origin + '?app=' + app.id;
+                    if (navigator.share) {
+                      navigator.share({
+                        title: app.name,
+                        text: `Check out ${app.name} on ${userProfile?.firstName || 'our'} Store!`,
+                        url
+                      }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(url);
+                      toast.success('App link copied to clipboard');
+                    }
+                  }
+                }}
+                className="p-2 text-zinc-400 hover:text-blue-500 transition-colors"
+                title="Share"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => app && onToggleFavorite(app.id)}
+                className={`p-2 transition-colors ${app && userProfile?.favorites?.includes(app.id) ? 'text-red-500' : 'text-zinc-400 hover:text-red-500'}`}
+                title="Add to favorites"
+              >
+                <Heart className={`w-5 h-5 ${app && userProfile?.favorites?.includes(app.id) ? 'fill-current' : ''}`} />
+              </button>
+            </div>
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-smooth">
@@ -787,16 +1040,16 @@ const PreviewPage: React.FC<{
                 <div className="w-px h-10 bg-zinc-200 dark:bg-zinc-800" />
                 <div className="text-center">
                   <div className="text-zinc-900 dark:text-white font-bold text-lg">
-                    {app.version || '1.0.0'}
+                    {app.size}
                   </div>
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Version</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Size</p>
                 </div>
                 <div className="w-px h-10 bg-zinc-200 dark:bg-zinc-800" />
                 <div className="text-center">
-                  <div className="text-zinc-900 dark:text-white font-bold text-lg">
-                    {app.size || '45 MB'}
+                  <div className="text-zinc-900 dark:text-white font-bold text-lg uppercase">
+                    {app.category}
                   </div>
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Size</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">Category</p>
                 </div>
               </div>
 
@@ -884,6 +1137,18 @@ const PreviewPage: React.FC<{
                   <div className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-900">
                     <span className="text-zinc-500">Category</span>
                     <span className="font-medium text-zinc-900 dark:text-white">{app.category}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-900">
+                    <span className="text-zinc-500">Version</span>
+                    <span className="font-medium text-zinc-900 dark:text-white">{app.version || '1.0.0'}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-900">
+                    <span className="text-zinc-500">Size</span>
+                    <span className="font-medium text-zinc-900 dark:text-white">{app.size || '45 MB'}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-900">
+                    <span className="text-zinc-500">Downloads</span>
+                    <span className="font-medium text-zinc-900 dark:text-white">{app.downloads?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-zinc-100 dark:border-zinc-900">
                     <span className="text-zinc-500">Language</span>
@@ -1139,19 +1404,30 @@ const SystemPortal: React.FC<{
   appToDelete: AppItem | null;
   setAppToDelete: React.Dispatch<React.SetStateAction<AppItem | null>>;
   isResettingDatabase: boolean;
-}> = ({
-  isOpen, onClose, apps, setApps, isTodayEnabled, setIsTodayEnabled, todayApps, setTodayApps,
-  storeName, setStoreName, isMaintenanceMode, setIsMaintenanceMode,
-  totalUsers, allUsers, isLoadingUsers, activities, firebaseUser, userProfile,
-  logActivity, fixPublisherData, clearActivities, resetDatabase, seedSampleData, uploadApp,
-  adminTab, setAdminTab, uploadName, setUploadName, uploadIsGame, setUploadIsGame,
-  uploadCategory, setUploadCategory, uploadIconUrl, setUploadIconUrl, uploadMainThumbnail, setUploadMainThumbnail,
-  uploadDescription, setUploadDescription, uploadSize, setUploadSize, uploadVersion, setUploadVersion,
-  uploadDownloadUrl, setUploadDownloadUrl, uploadScreenshots, setUploadScreenshots,
-  uploadStatus, setUploadStatus, editingApp, setEditingApp, expandedAppId, setExpandedAppId,
-  adminSearchQuery, setAdminSearchQuery, adminFilterStatus, setAdminFilterStatus,
-  appToDelete, setAppToDelete, isResettingDatabase
-}) => {
+  isChatOpen: boolean;
+  setIsChatOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsAuthModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  purchasedAppIds: Set<string>;
+  view: string;
+  setView: (view: any) => void;
+  selectedPublisherId: string | null;
+  setSelectedPublisherId: (id: string | null) => void;
+}> = (props) => {
+  const {
+    isOpen, onClose, apps, setApps, isTodayEnabled, setIsTodayEnabled, todayApps, setTodayApps,
+    storeName, setStoreName, isMaintenanceMode, setIsMaintenanceMode,
+    totalUsers, allUsers, isLoadingUsers, activities, firebaseUser, userProfile,
+    logActivity, fixPublisherData, clearActivities, resetDatabase, seedSampleData, uploadApp,
+    adminTab, setAdminTab, uploadName, setUploadName, uploadIsGame, setUploadIsGame,
+    uploadCategory, setUploadCategory, uploadIconUrl, setUploadIconUrl, uploadMainThumbnail, setUploadMainThumbnail,
+    uploadDescription, setUploadDescription, uploadSize, setUploadSize, uploadVersion, setUploadVersion,
+    uploadDownloadUrl, setUploadDownloadUrl, uploadScreenshots, setUploadScreenshots,
+    uploadStatus, setUploadStatus, editingApp, setEditingApp, expandedAppId, setExpandedAppId,
+    adminSearchQuery, setAdminSearchQuery, adminFilterStatus, setAdminFilterStatus,
+    appToDelete, setAppToDelete, isResettingDatabase, purchasedAppIds,
+    view, setView, selectedPublisherId, setSelectedPublisherId,
+    setIsChatOpen: triggerChat, setIsAuthModalOpen: triggerAuth, isChatOpen
+  } = props;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -1184,11 +1460,11 @@ const SystemPortal: React.FC<{
           </div>
           
           <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
-            <div className="max-w-7xl mx-auto px-6 py-10 md:px-10 md:py-16 space-y-12">
+            <div className="max-w-7xl mx-auto px-4 py-8 md:px-10 md:py-16 space-y-8 md:space-y-12">
               
               {/* Horizontal Navigation */}
-              <div className="flex items-center justify-center">
-                <div className="flex gap-1 p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-[28px] border border-zinc-200/50 dark:border-zinc-800/50 overflow-x-auto no-scrollbar max-w-full">
+              <div className="flex items-center justify-start md:justify-center overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="flex gap-1 p-1 md:p-1.5 bg-zinc-100/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-[20px] md:rounded-[28px] border border-zinc-200/50 dark:border-zinc-800/50 min-w-max">
                   {[
                     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
                     { id: 'publish', label: 'Publish App', icon: PlusCircle },
@@ -1200,13 +1476,13 @@ const SystemPortal: React.FC<{
                     <button 
                       key={tab.id}
                       onClick={() => setAdminTab(tab.id as any)} 
-                      className={`relative flex items-center gap-2.5 px-6 py-3.5 rounded-[22px] font-bold text-sm transition-all whitespace-nowrap group ${
+                      className={`relative flex items-center gap-2 px-4 py-2.5 md:px-6 md:py-3.5 rounded-[16px] md:rounded-[22px] font-bold text-xs md:text-sm transition-all whitespace-nowrap group ${
                         adminTab === tab.id 
-                          ? 'bg-white dark:bg-zinc-800 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.1)] text-zinc-900 dark:text-white' 
+                          ? 'bg-white dark:bg-zinc-800 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] text-zinc-900 dark:text-white' 
                           : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
                       }`}
                     >
-                      <tab.icon className={`w-4 h-4 transition-colors ${adminTab === tab.id ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`} />
+                      <tab.icon className={`w-3.5 h-3.5 md:w-4 h-4 transition-colors ${adminTab === tab.id ? 'text-blue-500' : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`} />
                       {tab.label}
                       {adminTab === tab.id && (
                         <motion.div 
@@ -1223,8 +1499,8 @@ const SystemPortal: React.FC<{
                 <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-10">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Platform Dashboard</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Real-time platform metrics and status.</p>
+                    <h3 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Platform Dashboard</h3>
+                    <p className="text-base md:text-lg text-zinc-500 font-medium tracking-tight">Real-time platform metrics and status.</p>
                   </div>
                   <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-5 py-2.5 rounded-[20px] border border-zinc-100 dark:border-zinc-800 shadow-sm transition-transform hover:translate-y-[-2px]">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
@@ -1232,21 +1508,21 @@ const SystemPortal: React.FC<{
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                   {[
                     { label: 'Deployed Apps', val: apps.length, icon: Package, color: 'blue', trend: '+12%', sub: 'this week' },
                     { label: 'Store Capacity', val: apps.reduce((acc, app) => acc + (app.downloads || 0), 0).toLocaleString(), icon: ArrowDownToLine, color: 'green', trend: 'Active', sub: 'Nodes' },
                     { label: 'Active Users', val: totalUsers, icon: Users, color: 'purple', trend: 'Global', sub: 'Registry' }
                   ].map((metric) => (
-                    <div key={metric.label} className="group bg-white dark:bg-zinc-900 p-8 rounded-[40px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 transition-all hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)] hover:border-zinc-200 dark:hover:border-zinc-700">
-                      <div className="flex items-center justify-between mb-8">
-                        <div className={`w-16 h-16 rounded-[24px] bg-${metric.color}-50 dark:bg-${metric.color}-900/20 flex items-center justify-center text-${metric.color}-600 dark:text-${metric.color}-400 group-hover:scale-110 transition-transform duration-500`}>
-                          <metric.icon className="w-7 h-7" />
+                    <div key={metric.label} className="group bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-[32px] md:rounded-[40px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 transition-all hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.08)] hover:border-zinc-200 dark:hover:border-zinc-700">
+                      <div className="flex items-center justify-between mb-6 md:mb-8">
+                        <div className={`w-12 h-12 md:w-16 md:h-16 rounded-[18px] md:rounded-[24px] bg-${metric.color}-50 dark:bg-${metric.color}-900/20 flex items-center justify-center text-${metric.color}-600 dark:text-${metric.color}-400 group-hover:scale-110 transition-transform duration-500`}>
+                          <metric.icon className="w-6 h-6 md:w-7 md:h-7" />
                         </div>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-3.5 py-1.5 rounded-full bg-${metric.color}-500/10 text-${metric.color}-600`}>{metric.trend} {metric.sub}</span>
+                        <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1 md:px-3.5 md:py-1.5 rounded-full bg-${metric.color}-500/10 text-${metric.color}-600`}>{metric.trend} {metric.sub}</span>
                       </div>
-                      <p className="text-sm text-zinc-400 font-extrabold uppercase tracking-[0.15em] mb-2">{metric.label}</p>
-                      <h4 className="text-5xl font-black text-zinc-900 dark:text-white tabular-nums tracking-tighter">{metric.val}</h4>
+                      <p className="text-[11px] md:text-sm text-zinc-400 font-extrabold uppercase tracking-[0.15em] mb-1 md:mb-2">{metric.label}</p>
+                      <h4 className="text-3xl md:text-5xl font-black text-zinc-900 dark:text-white tabular-nums tracking-tighter">{metric.val}</h4>
                       
                       {metric.label === 'Deployed Apps' && (
                         <div className="mt-8 flex gap-2">
@@ -1260,16 +1536,16 @@ const SystemPortal: React.FC<{
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white dark:bg-zinc-900 px-8 py-10 rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
-                    <div className="flex items-center justify-between mb-10">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
-                          <History className="w-6 h-6" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                  <div className="bg-white dark:bg-zinc-900 px-6 py-8 md:px-8 md:py-10 rounded-[32px] md:rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                    <div className="flex items-center justify-between mb-8 md:mb-10">
+                      <div className="flex items-center gap-3 md:gap-4">
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                          <History className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
                         <div>
-                          <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">System Activity</h4>
-                          <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Live Event Stream</p>
+                          <h4 className="text-lg md:text-xl font-black text-zinc-900 dark:text-white leading-none">System Activity</h4>
+                          <p className="text-[9px] md:text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Live Event Stream</p>
                         </div>
                       </div>
                       <button 
@@ -1304,14 +1580,14 @@ const SystemPortal: React.FC<{
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-zinc-900 px-8 py-10 rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
-                    <div className="flex items-center gap-4 mb-10">
-                      <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
-                        <Zap className="w-6 h-6" />
+                  <div className="bg-white dark:bg-zinc-900 px-6 py-8 md:px-8 md:py-10 rounded-[32px] md:rounded-[48px] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                    <div className="flex items-center gap-3 md:gap-4 mb-8 md:mb-10">
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                        <Zap className="w-5 h-5 md:w-6 md:h-6" />
                       </div>
                       <div>
-                        <h4 className="text-xl font-black text-zinc-900 dark:text-white leading-none">Service Status</h4>
-                        <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Real-time Latency Check</p>
+                        <h4 className="text-lg md:text-xl font-black text-zinc-900 dark:text-white leading-none">Service Status</h4>
+                        <p className="text-[9px] md:text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5">Real-time Latency Check</p>
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -1336,11 +1612,11 @@ const SystemPortal: React.FC<{
             )}
 
             {adminTab === 'publish' && (
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-8 md:space-y-12">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 md:gap-8">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Publish App</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Add a new application to the store.</p>
+                    <h3 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Publish App</h3>
+                    <p className="text-base md:text-lg text-zinc-500 font-medium tracking-tight">Add a new application to the store.</p>
                   </div>
                   <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 px-6 py-3 rounded-[24px] border border-zinc-100 dark:border-zinc-800 shadow-sm">
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Visibility</span>
@@ -1350,25 +1626,25 @@ const SystemPortal: React.FC<{
                     </select>
                   </div>
                 </div>
- 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                  <div className="lg:col-span-2 space-y-10">
-                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 space-y-10">
-                      <div className="space-y-8">
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+                  <div className="lg:col-span-2 space-y-6 md:space-y-10">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[32px] md:rounded-[48px] p-6 md:p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50 space-y-8 md:space-y-10">
+                      <div className="space-y-6 md:space-y-8">
                         <div>
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-4 block ml-2">App Name</label>
-                          <input type="text" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Friendly Application Name" className="w-full text-3xl font-black p-8 rounded-[32px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" />
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-3 md:mb-4 block ml-2">App Name</label>
+                          <input type="text" value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="Friendly Application Name" className="w-full text-xl md:text-3xl font-black p-5 md:p-8 rounded-[24px] md:rounded-[32px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-700" />
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="p-2.5 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-[28px] flex gap-2 border border-zinc-200/50 dark:border-zinc-700/50">
-                             <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${!uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>App</button>
-                             <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest transition-all ${uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Game</button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                           <div className="p-1.5 md:p-2.5 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-[22px] md:rounded-[28px] flex gap-2 border border-zinc-200/50 dark:border-zinc-700/50">
+                             <button onClick={() => setUploadIsGame(false)} className={`flex-1 py-3 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all ${!uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>App</button>
+                             <button onClick={() => setUploadIsGame(true)} className={`flex-1 py-3 md:py-4 rounded-[16px] md:rounded-[20px] font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all ${uploadIsGame ? 'bg-white dark:bg-zinc-700 shadow-xl shadow-black/5 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-600' : 'text-zinc-500 hover:text-zinc-700'}`}>Game</button>
                            </div>
                            <select 
                             value={uploadCategory} 
                             onChange={(e) => setUploadCategory(e.target.value)} 
-                            className="w-full p-5 rounded-[28px] font-bold bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all cursor-pointer"
+                            className="w-full p-4 md:p-5 rounded-[22px] md:rounded-[28px] font-bold bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all cursor-pointer text-sm md:text-base"
                           >
                             <option value="" disabled>Category</option>
                             {['Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map((cat) => (
@@ -1377,55 +1653,109 @@ const SystemPortal: React.FC<{
                           </select>
                         </div>
                       </div>
- 
-                      <div className="space-y-8 pt-10 border-t border-zinc-100 dark:border-zinc-900">
+
+                      <div className="space-y-6 md:space-y-8 pt-8 md:pt-10 border-t border-zinc-100 dark:border-zinc-900">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] block ml-2">Download Link</label>
                         <div className="relative group">
-                          <div className="absolute left-7 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors">
-                            <Link2 className="w-5 h-5" />
+                          <div className="absolute left-6 md:left-7 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors">
+                            <Link2 className="w-4 h-4 md:w-5 md:h-5" />
                           </div>
-                          <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://example.com/app.zip" className="w-full pl-16 p-6 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:font-medium placeholder:text-zinc-400" />
+                          <input type="text" value={uploadDownloadUrl} onChange={(e) => setUploadDownloadUrl(e.target.value)} placeholder="https://example.com/app.zip" className="w-full pl-14 md:pl-16 p-4 md:p-6 rounded-[22px] md:rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold text-sm md:text-base placeholder:font-medium placeholder:text-zinc-400" />
                         </div>
-                        <div className="grid grid-cols-2 gap-6">
-                          <input type="text" value={uploadSize} onChange={(e) => setUploadSize(e.target.value)} placeholder="Payload size (45.2 MB)" className="w-full p-5 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:text-zinc-400" />
-                          <input type="text" value={uploadVersion} onChange={(e) => setUploadVersion(e.target.value)} placeholder="Revision id (v1.0.0)" className="w-full p-5 rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold placeholder:text-zinc-400" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                          <input type="text" value={uploadSize} onChange={(e) => setUploadSize(e.target.value)} placeholder="Payload size (45.2 MB)" className="w-full p-4 md:p-5 rounded-[22px] md:rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold text-sm md:text-base placeholder:text-zinc-400" />
+                          <input type="text" value={uploadVersion} onChange={(e) => setUploadVersion(e.target.value)} placeholder="Revision id (v1.0.0)" className="w-full p-4 md:p-5 rounded-[22px] md:rounded-[28px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-bold text-sm md:text-base placeholder:text-zinc-400" />
                         </div>
                       </div>
- 
-                      <div className="space-y-6 pt-10 border-t border-zinc-100 dark:border-zinc-900">
+
+                      <div className="space-y-4 md:space-y-6 pt-8 md:pt-10 border-t border-zinc-100 dark:border-zinc-900">
                         <div className="flex items-center justify-between px-2">
                           <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Description</label>
-                          <span className="text-[9px] font-black text-blue-500 border border-blue-500/20 uppercase tracking-widest bg-blue-500/5 px-3 py-1 rounded-full">Markdown Supported</span>
+                          <span className="text-[8px] md:text-[9px] font-black text-blue-500 border border-blue-500/20 uppercase tracking-widest bg-blue-500/5 px-2.5 py-1 md:px-3 md:py-1 rounded-full">Markdown Supported</span>
                         </div>
-                        <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Type the app description here..." rows={10} className="w-full p-8 rounded-[36px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-medium resize-none leading-relaxed placeholder:text-zinc-400" />
+                        <textarea value={uploadDescription} onChange={(e) => setUploadDescription(e.target.value)} placeholder="Type the app description here..." rows={8} className="w-full p-5 md:p-8 rounded-[24px] md:rounded-[36px] bg-zinc-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500/30 outline-none transition-all font-medium resize-none leading-relaxed text-sm md:text-base placeholder:text-zinc-400" />
                       </div>
                     </div>
                   </div>
- 
-                  <div className="space-y-10">
-                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-8 block text-center">Visual Assets</label>
-                      <div className="space-y-10">
-                        <div className="space-y-4">
-                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">App Icon</p>
+
+                  <div className="space-y-6 md:space-y-10">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[32px] md:rounded-[48px] p-6 md:p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-6 md:mb-8 block text-center">Visual Assets</label>
+                      <div className="space-y-8 md:space-y-10">
+                        <div className="space-y-3 md:space-y-4">
+                          <p className="text-[8px] md:text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">App Icon</p>
                           <div className="flex justify-center">
                             <ImageUploader onUpload={setUploadIconUrl} currentIconUrl={uploadIconUrl} />
                           </div>
                         </div>
-                        <div className="space-y-4">
-                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Featured Graphic</p>
+                        <div className="space-y-3 md:space-y-4">
+                          <p className="text-[8px] md:text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] text-center">Featured Graphic</p>
                           <div className="flex justify-center">
                             <ImageUploader onUpload={setUploadMainThumbnail} currentIconUrl={uploadMainThumbnail} />
                           </div>
                         </div>
                       </div>
                     </div>
- 
-                    <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-6 block text-center">Screenshots</label>
+
+                    <div className="bg-white dark:bg-zinc-900 rounded-[32px] md:rounded-[48px] p-6 md:p-10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.04)] border border-zinc-100 dark:border-zinc-800/50">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] mb-4 md:mb-6 block text-center">Screenshots</label>
                       <ScreenshotUploader onUpload={setUploadScreenshots} />
                     </div>
- 
+
+                    <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-[32px] md:rounded-[48px] p-6 md:p-10 border-2 border-dashed border-zinc-200 dark:border-zinc-800 space-y-6">
+                      <div className="text-center">
+                        <label className="text-[10px] font-black text-blue-500 uppercase tracking-[0.25em] block mb-2">Live Preview</label>
+                        <p className="text-xs text-zinc-500 font-medium">How your app will appear to users in the store</p>
+                      </div>
+                      
+                      <div className="flex flex-col items-center gap-10 py-4 scale-90 md:scale-100 origin-top">
+                        <div className="space-y-4 w-full max-w-[200px]">
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Store Card</p>
+                          <PlayStoreCard 
+                            app={{
+                              id: 'preview',
+                              name: uploadName || 'App Name',
+                              category: uploadCategory || 'Category',
+                              rating: 0,
+                              iconUrl: uploadIconUrl || 'https://via.placeholder.com/512?text=App+Icon',
+                              mainThumbnail: uploadMainThumbnail,
+                              isGame: uploadIsGame,
+                              status: 'published',
+                              developer: `${userProfile?.firstName} ${userProfile?.lastName}` || 'Developer',
+                              description: uploadDescription,
+                              size: uploadSize,
+                              version: uploadVersion,
+                              screenshots: uploadScreenshots,
+                              downloads: 0
+                            }}
+                            onPreview={() => {}}
+                          />
+                        </div>
+
+                        <div className="space-y-4 w-full">
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Hero Style Preview</p>
+                          <div className="relative aspect-video rounded-[32px] overflow-hidden bg-zinc-200 dark:bg-zinc-800 shadow-2xl">
+                             {uploadMainThumbnail ? (
+                               <img src={uploadMainThumbnail} className="w-full h-full object-cover" />
+                             ) : (
+                               <div className="w-full h-full flex items-center justify-center text-zinc-400 text-[10px] font-black uppercase">No Hero Image</div>
+                             )}
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
+                               <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/20 shadow-lg">
+                                    <img src={uploadIconUrl || 'https://via.placeholder.com/512?text=Icon'} className="w-full h-full object-cover" />
+                                 </div>
+                                 <div>
+                                   <h4 className="text-white font-black text-sm">{uploadName || 'App Name'}</h4>
+                                   <p className="text-white/60 text-[10px] font-medium">{uploadCategory || 'Category'}</p>
+                                 </div>
+                               </div>
+                             </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <button 
                       onClick={async () => {
                         if (!uploadName || !uploadCategory || !uploadIconUrl || !uploadDownloadUrl) {
@@ -1458,9 +1788,9 @@ const SystemPortal: React.FC<{
                           toast.error('Failed to publish app');
                         }
                       }} 
-                      className="w-full py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[36px] font-black text-lg uppercase tracking-[0.15em] shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-4 group"
+                      className="w-full py-6 md:py-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[28px] md:rounded-[36px] font-black text-base md:text-lg uppercase tracking-[0.15em] shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 md:gap-4 group"
                     >
-                      <Zap className="w-6 h-6 fill-current group-hover:animate-pulse" />
+                      <Zap className="w-5 h-5 md:w-6 md:h-6 fill-current group-hover:animate-pulse" />
                       Publish App
                     </button>
                   </div>
@@ -1470,28 +1800,28 @@ const SystemPortal: React.FC<{
 
             {adminTab === 'manage' && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8">
                   <div>
-                    <h3 className="text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">Manage Apps</h3>
-                    <p className="text-zinc-500 dark:text-zinc-400 font-medium">Manage existing apps in the store.</p>
+                    <h3 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white tracking-tight">Manage Apps</h3>
+                    <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 font-medium">Manage existing entries in the network.</p>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="relative group min-w-[240px]">
+                  <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full lg:w-auto">
+                    <div className="relative group flex-1 md:min-w-[320px]">
                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-blue-500 transition-colors" />
                       <input 
                         type="text" 
-                        placeholder="Search apps..." 
+                        placeholder="Search assets..." 
                         value={adminSearchQuery}
                         onChange={(e) => setAdminSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-bold"
+                        className="w-full pl-11 pr-4 py-3 rounded-[18px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm font-bold text-sm"
                       />
                     </div>
                     <select 
                       value={adminFilterStatus}
                       onChange={(e) => setAdminFilterStatus(e.target.value as any)}
-                      className="px-6 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm font-black text-xs uppercase"
+                      className="px-5 py-3 rounded-[18px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm font-black text-[10px] uppercase tracking-widest cursor-pointer"
                     >
-                      <option value="all">Network Status</option>
+                      <option value="all">Global Status</option>
                       <option value="published">Production</option>
                       <option value="draft">Sandbox</option>
                       <option value="archived">Legacy</option>
@@ -1649,51 +1979,51 @@ const SystemPortal: React.FC<{
 
             {adminTab === 'users' && (
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8">
                   <div className="space-y-1">
-                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Users</h3>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight">Global directory of registered users.</p>
+                    <h3 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">Identity Registry</h3>
+                    <p className="text-base md:text-lg text-zinc-500 font-medium tracking-tight">Global directory of registered cloud users.</p>
                   </div>
-                  <div className="bg-white dark:bg-zinc-900 px-8 py-4 rounded-[28px] border border-zinc-100 dark:border-zinc-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)]">
-                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-1">Total Users</span>
-                    <span className="text-3xl font-black text-zinc-900 dark:text-white tabular-nums">{totalUsers}</span>
+                  <div className="bg-white dark:bg-zinc-900 px-6 py-4 md:px-8 md:py-4 rounded-[22px] md:rounded-[28px] border border-zinc-100 dark:border-zinc-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.04)] inline-flex flex-col">
+                    <span className="text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] block mb-1">Active Nodes</span>
+                    <span className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white tabular-nums">{totalUsers}</span>
                   </div>
                 </div>
  
-                <div className="bg-white dark:bg-zinc-900 rounded-[48px] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                <div className="bg-white dark:bg-zinc-900 rounded-[28px] md:rounded-[48px] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
                   <div className="overflow-x-auto no-scrollbar">
-                    <table className="w-full text-left min-w-[800px]">
+                    <table className="w-full text-left min-w-[700px]">
                       <thead>
                         <tr className="bg-zinc-50/50 dark:bg-zinc-800/30 border-b border-zinc-100 dark:border-zinc-800">
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">User</th>
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Username</th>
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Email</th>
-                          <th className="px-10 py-8 text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] text-right">Access Level</th>
+                          <th className="px-6 py-5 md:px-10 md:py-8 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">User</th>
+                          <th className="px-6 py-5 md:px-10 md:py-8 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Username</th>
+                          <th className="px-6 py-5 md:px-10 md:py-8 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">Email</th>
+                          <th className="px-6 py-5 md:px-10 md:py-8 text-[9px] md:text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] text-right">Clearance</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100/50 dark:divide-zinc-800/50">
                         {allUsers.map((user) => (
                           <tr key={user.id} className="group hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-all duration-300">
-                            <td className="px-10 py-7">
-                              <div className="flex items-center gap-5">
-                                <div className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-transparent group-hover:border-blue-500/20 shadow-inner group-hover:scale-110 transition-all duration-500">
+                            <td className="px-6 py-5 md:px-10 md:py-7">
+                              <div className="flex items-center gap-3 md:gap-5">
+                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-transparent group-hover:border-blue-500/20 shadow-inner group-hover:scale-105 transition-all duration-500">
                                   {user.photoURL ? (
                                     <img src={user.photoURL} className="w-full h-full object-cover" />
                                   ) : (
-                                    <Users className="w-7 h-7 text-zinc-300" />
+                                    <Users className="w-5 h-5 md:w-7 md:h-7 text-zinc-300" />
                                   )}
                                 </div>
                                 <div>
-                                  <p className="text-base font-black text-zinc-900 dark:text-white leading-none">{user.firstName} {user.lastName}</p>
-                                  <p className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest mt-2">Initialized {userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString() : 'N/A'}</p>
+                                  <p className="text-sm md:text-base font-black text-zinc-900 dark:text-white leading-none">{user.firstName} {user.lastName}</p>
+                                  <p className="text-[9px] font-extrabold text-zinc-400 uppercase tracking-widest mt-1.5 md:mt-2">ID: {user.id.slice(0, 8)}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-10 py-7 text-sm font-black text-blue-500 tracking-tight">@{user.username}</td>
-                            <td className="px-10 py-7 text-sm font-medium text-zinc-500 dark:text-zinc-400">{user.email}</td>
-                            <td className="px-10 py-7 text-right">
-                              <span className={`text-[10px] font-black uppercase tracking-[0.25em] px-5 py-2 rounded-full border ${user.role === 'admin' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-transparent shadow-xl' : 'bg-transparent text-zinc-400 border-zinc-100 dark:border-zinc-800 group-hover:border-zinc-200 group-hover:text-zinc-600 transition-colors'}`}>
-                                {user.role || 'Participant'}
+                            <td className="px-6 py-5 md:px-10 md:py-7 text-xs md:text-sm font-black text-blue-500 tracking-tight">@{user.username}</td>
+                            <td className="px-6 py-5 md:px-10 md:py-7 text-xs md:text-sm font-medium text-zinc-500 dark:text-zinc-400">{user.email}</td>
+                            <td className="px-6 py-5 md:px-10 md:py-7 text-right">
+                              <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 md:px-5 md:py-2 rounded-full border ${user.role === 'admin' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-transparent shadow-xl' : 'bg-transparent text-zinc-400 border-zinc-100 dark:border-zinc-800 group-hover:border-zinc-200 group-hover:text-zinc-600 transition-colors'}`}>
+                                {user.role || 'Neutral'}
                               </span>
                             </td>
                           </tr>
@@ -1746,35 +2076,35 @@ const SystemPortal: React.FC<{
                   </label>
                 </div>
  
-                <div className="bg-white dark:bg-zinc-900 rounded-[56px] p-12 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-12">
+                <div className="bg-white dark:bg-zinc-900 rounded-[32px] md:rounded-[56px] p-6 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-8 md:space-y-12">
                   <div className="max-w-3xl">
-                    <div className="flex items-center gap-4 mb-6">
-                       <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
-                         <Star className="w-6 h-6 fill-zinc-900 dark:fill-white" />
+                    <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
+                       <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-900 dark:text-zinc-100 shadow-inner">
+                         <Star className="w-5 h-5 md:w-6 md:h-6 fill-zinc-900 dark:fill-white" />
                        </div>
-                       <h4 className="text-2xl font-black text-zinc-900 dark:text-white leading-none">Curation Pipeline</h4>
+                       <h4 className="text-xl md:text-2xl font-black text-zinc-900 dark:text-white leading-none">Curation Pipeline</h4>
                     </div>
-                    <p className="text-lg text-zinc-500 font-medium tracking-tight leading-relaxed">Select the most compelling apps for the landing stream. Slot 1 defaults to the <span className="text-zinc-900 dark:text-white font-black border-b-2 border-blue-500/30">Premiere Slot</span>, supporting high-fidelity visual engagement.</p>
+                    <p className="text-base md:text-lg text-zinc-500 font-medium tracking-tight leading-relaxed">Select the most compelling apps for the landing stream. Slot 1 defaults to the <span className="text-zinc-900 dark:text-white font-black border-b-2 border-blue-500/30">Premiere Slot</span>, supporting high-fidelity visual engagement.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {apps.filter(a => a.status === 'published').map(app => {
                       const isSelected = todayApps.includes(app.id);
                       const slotIndex = todayApps.indexOf(app.id);
                       return (
-                        <label key={app.id} className={`group flex items-center justify-between p-8 rounded-[40px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-900 dark:border-white shadow-2xl' : 'bg-transparent border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'}`}>
-                          <div className="flex items-center gap-6 relative z-10">
+                        <label key={app.id} className={`group flex items-center justify-between p-5 md:p-8 rounded-[28px] md:rounded-[40px] border-2 transition-all cursor-pointer relative overflow-hidden ${isSelected ? 'bg-zinc-50 dark:bg-zinc-800/40 border-zinc-900 dark:border-white shadow-2xl' : 'bg-transparent border-zinc-100 dark:border-zinc-800 hover:border-zinc-300'}`}>
+                          <div className="flex items-center gap-4 md:gap-6 relative z-10">
                             <div className="relative">
-                              <img src={app.iconUrl} alt={app.name} className={`w-16 h-16 rounded-[24px] object-cover shadow-2xl transition-all duration-500 group-hover:scale-110 ${isSelected ? 'scale-110 rotate-3' : ''}`} />
+                              <img src={app.iconUrl} alt={app.name} className={`w-12 h-12 md:w-16 md:h-16 rounded-[14px] md:rounded-[24px] object-cover shadow-2xl transition-all duration-500 group-hover:scale-110 ${isSelected ? 'scale-110 rotate-3' : ''}`} />
                               {isSelected && (
-                                <div className="absolute -top-3 -left-3 w-9 h-9 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-xs font-black border-4 border-white dark:border-zinc-900 shadow-2xl">
+                                <div className="absolute -top-2 -left-2 md:-top-3 md:-left-3 w-7 h-7 md:w-9 md:h-9 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-[10px] md:text-xs font-black border-2 md:border-4 border-white dark:border-zinc-900 shadow-2xl">
                                   {slotIndex + 1}
                                 </div>
                               )}
                             </div>
                             <div>
-                              <p className="font-black text-lg text-zinc-900 dark:text-white leading-tight">{app.name}</p>
-                              <p className="text-[10px] font-black text-zinc-400 mt-1.5 uppercase tracking-widest">{app.category}</p>
+                              <p className="font-black text-base md:text-lg text-zinc-900 dark:text-white leading-tight">{app.name}</p>
+                              <p className="text-[9px] md:text-[10px] font-black text-zinc-400 mt-1.5 uppercase tracking-widest">{app.category}</p>
                             </div>
                           </div>
                           
@@ -1817,33 +2147,33 @@ const SystemPortal: React.FC<{
             )}
 
             {adminTab === 'settings' && (
-              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-12 max-w-4xl mx-auto">
-                <div className="text-center space-y-3">
-                   <h3 className="text-5xl font-black text-zinc-900 dark:text-white tracking-widest uppercase">System Settings</h3>
-                   <p className="text-zinc-500 font-extrabold uppercase tracking-[0.4em] text-[11px] ml-1">Core App Store Configuration</p>
+              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8 md:space-y-12 max-w-4xl mx-auto">
+                <div className="text-center space-y-2 md:space-y-3">
+                   <h3 className="text-3xl md:text-5xl font-black text-zinc-900 dark:text-white tracking-widest uppercase">System Settings</h3>
+                   <p className="text-zinc-500 font-extrabold uppercase tracking-[0.4em] text-[9px] md:text-[11px] ml-1">Core App Store Configuration</p>
                 </div>
                 
-                <div className="bg-white dark:bg-zinc-900 rounded-[56px] p-12 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-16">
-                  <div className="grid grid-cols-1 gap-12">
-                    <div className="group space-y-4">
+                <div className="bg-white dark:bg-zinc-900 rounded-[32px] md:rounded-[56px] p-8 md:p-16 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] border border-zinc-100 dark:border-zinc-800 space-y-12 md:space-y-16">
+                  <div className="grid grid-cols-1 gap-8 md:gap-12">
+                    <div className="group space-y-3 md:space-y-4">
                       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em] ml-4 block transition-colors group-focus-within:text-blue-500">Store Name</label>
                       <input 
                         type="text" 
                         value={storeName} 
                         onChange={(e) => setStoreName(e.target.value)}
-                        className="w-full text-4xl font-black p-10 rounded-[40px] bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-blue-500/20 transition-all outline-none shadow-inner"
+                        className="w-full text-2xl md:text-4xl font-black p-6 md:p-10 rounded-[28px] md:rounded-[40px] bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-blue-500/20 transition-all outline-none shadow-inner"
                         placeholder="Vision Cloud"
                       />
                     </div>
  
-                    <div className="flex flex-col md:flex-row md:items-center justify-between p-10 bg-zinc-50 dark:bg-zinc-800/30 rounded-[40px] border border-zinc-100/50 dark:border-zinc-800/50 group transition-all hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 gap-8">
-                      <div className="flex items-center gap-8">
-                        <div className={`w-20 h-20 rounded-[28px] flex items-center justify-center transition-all duration-500 ${isMaintenanceMode ? 'bg-red-500 text-white shadow-2xl shadow-red-500/30 scale-110' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400'}`}>
-                           <CloudAlert className="w-10 h-10" />
+                    <div className="flex flex-col md:flex-row md:items-center justify-between p-6 md:p-10 bg-zinc-50 dark:bg-zinc-800/30 rounded-[32px] md:rounded-[40px] border border-zinc-100/50 dark:border-zinc-800/50 group transition-all hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 gap-6 md:gap-8">
+                      <div className="flex items-center gap-5 md:gap-8">
+                        <div className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-[28px] flex items-center justify-center transition-all duration-500 ${isMaintenanceMode ? 'bg-red-500 text-white shadow-2xl shadow-red-500/30 scale-110' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-400'}`}>
+                           <CloudAlert className="w-7 h-7 md:w-10 md:h-10" />
                         </div>
                         <div className="space-y-1">
-                          <h4 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">Maintenance Lock</h4>
-                          <p className="text-base text-zinc-500 font-medium tracking-tight">Suspend public traffic for live debugging.</p>
+                          <h4 className="text-xl md:text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-none">Maintenance Lock</h4>
+                          <p className="text-sm md:text-base text-zinc-500 font-medium tracking-tight">Suspend public traffic for live debugging.</p>
                         </div>
                       </div>
                       <button 
@@ -2053,13 +2383,16 @@ const ProfileSheet: React.FC<{
   setIsPreviewOpen: (isOpen: boolean) => void;
   setApps: (apps: AppItem[]) => void;
   setIsSystemPortalOpen: (isOpen: boolean) => void;
+  setIsAuthModalOpen: (isOpen: boolean) => void;
+  setIsChatOpen: (isOpen: boolean) => void;
+  onRequireAuth: (action: () => void) => void;
 }> = ({ 
   isOpen, onClose, isDarkMode, setIsDarkMode, language, setLanguage,
   passcode, setPasscode, isFaceIdEnabled, setIsFaceIdEnabled, isTouchIdEnabled, setIsTouchIdEnabled,
   purchasedAppIds, userProfile, setUserProfile, apps, isAdmin, isMaintenanceMode, storeName,
   setStoreName, setIsMaintenanceMode, isTodayEnabled, setIsTodayEnabled, todayApps, setTodayApps,
   view, setView, initialView, selectedPublisherId, setSelectedPublisherId, setSelectedApp, setIsPreviewOpen, setApps,
-  setIsSystemPortalOpen
+  setIsSystemPortalOpen, setIsAuthModalOpen, setIsChatOpen, onRequireAuth
 }) => {
   useEffect(() => {
     if (initialView) {
@@ -2105,6 +2438,7 @@ const ProfileSheet: React.FC<{
   const [authError, setAuthError] = useState<string | null>(null);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResettingDatabase, setIsResettingDatabase] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -2453,14 +2787,14 @@ const ProfileSheet: React.FC<{
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]"
           />
           <motion.div 
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[500px] h-[92vh] bg-zinc-50 dark:bg-zinc-950 rounded-t-[3rem] z-50 overflow-hidden flex flex-col shadow-2xl"
+            className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[500px] h-[92vh] bg-zinc-50 dark:bg-zinc-950 rounded-t-[3rem] z-[200] overflow-hidden flex flex-col shadow-2xl"
           >
             <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full mx-auto mt-3 mb-6" />
             
@@ -3286,10 +3620,19 @@ const ProfileSheet: React.FC<{
                             </div>
                             <div className="flex-1">
                               <p className="font-bold text-zinc-900 dark:text-white">{app.name}</p>
-                              <p className="text-xs text-zinc-500">Purchased on Mar 15, 2026</p>
+                              <p className="text-[10px] text-zinc-500 font-extrabold uppercase tracking-widest">Library Instance</p>
                             </div>
-                            <button className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-blue-500">
-                              <Download className="w-5 h-5" />
+                            <button 
+                              onClick={() => {
+                                if (app.downloadUrl && app.downloadUrl !== '#') {
+                                  window.open(app.downloadUrl, '_blank');
+                                } else {
+                                  toast.info('Opening application...');
+                                }
+                              }}
+                              className="px-6 py-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-500 font-black text-xs uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                            >
+                              Open
                             </button>
                           </div>
                         ))
@@ -3367,8 +3710,11 @@ const ProfileSheet: React.FC<{
                           <p className="text-sm text-zinc-600 dark:text-zinc-400">We use administrative, technical, and physical security measures to help protect your personal information.</p>
                         </div>
                       </div>
-                      <button className="w-full py-3 rounded-xl bg-blue-500 text-white font-bold">
-                        Learn More
+                      <button 
+                        onClick={() => setView('main')}
+                        className="w-full py-4 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-extrabold uppercase tracking-widest text-[10px] shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
+                      >
+                        Understood
                       </button>
                     </div>
                   </div>
@@ -3385,26 +3731,68 @@ const ProfileSheet: React.FC<{
                 >
                   {renderHeader('Support')}
                   <div className="flex-1 overflow-y-auto px-4 pb-12 space-y-6" {...getScrollProps('support')}>
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm text-center space-y-4">
-                      <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto">
-                        <HelpCircle className="w-8 h-8 text-zinc-400" />
+                    <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 shadow-sm text-center space-y-4">
+                      <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-full flex items-center justify-center mx-auto">
+                        <HelpCircle className="w-10 h-10 text-blue-500" />
                       </div>
-                      <h3 className="text-xl font-bold text-zinc-900 dark:text-white">How can we help?</h3>
-                      <p className="text-sm text-zinc-500">Our support team is available 24/7 to assist you with any questions or issues.</p>
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Support Hub</h3>
+                        <p className="text-sm text-zinc-500 font-medium">Our global software operations team is ready to assist you in real-time.</p>
+                      </div>
                     </div>
                     
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[32px] overflow-hidden shadow-sm border border-zinc-100 dark:border-zinc-800">
                       {[
-                        { label: 'Help Center', sub: 'Articles and guides' },
-                        { label: 'Contact Us', sub: 'Chat with an agent' },
-                        { label: 'Report a Problem', sub: 'Let us know what went wrong' },
+                        { 
+                          label: 'Help Center', 
+                          sub: 'Articles & tutorials', 
+                          icon: <HelpCircle className="w-5 h-5 text-blue-500" />,
+                          action: () => toast.info('Help center documentation is being compiled.')
+                        },
+                        { 
+                          label: 'Contact us on WhatsApp', 
+                          sub: 'Direct line to our agents', 
+                          icon: (
+                            <div className="w-8 h-8 flex items-center justify-center">
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-[#25D366]">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                              </svg>
+                            </div>
+                          ),
+                          action: () => {
+                            onRequireAuth(() => {
+                              const message = userProfile 
+                                ? encodeURIComponent(`Hey There, I am ${userProfile.firstName} ${userProfile.lastName} from Vision Cloud Store. And I have an inquiry.`)
+                                : encodeURIComponent(`Hey There, I am from Vision Cloud Store. And I have an inquiry.`);
+                              window.open(`https://wa.me/256789109035?text=${message}`, '_blank');
+                            });
+                          }
+                        },
+                        { 
+                          label: 'Community Hub', 
+                          sub: 'Talk to other Vision users', 
+                          icon: <MessageSquare className="w-5 h-5 text-purple-500" />,
+                          action: () => {
+                            setIsChatOpen(true);
+                            onClose();
+                          }
+                        },
                       ].map((item, i) => (
-                        <button key={i} className="w-full flex items-center justify-between p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                          <div className="text-left">
-                            <p className="font-medium text-zinc-900 dark:text-white">{item.label}</p>
-                            <p className="text-xs text-zinc-500">{item.sub}</p>
+                        <button 
+                          key={i} 
+                          onClick={item.action}
+                          className="w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all border-b border-zinc-100 dark:border-zinc-800 last:border-0 group"
+                        >
+                          <div className="flex items-center gap-4 text-left">
+                            <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              {item.icon}
+                            </div>
+                            <div>
+                              <p className="font-black text-zinc-900 dark:text-white text-sm tracking-tight">{item.label}</p>
+                              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{item.sub}</p>
+                            </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-zinc-300" />
+                          <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:translate-x-1 transition-transform" />
                         </button>
                       ))}
                     </div>
@@ -3498,6 +3886,8 @@ const Navigation: React.FC<{ activeTab: Tab; setActiveTab: (tab: Tab) => void; i
 };
 
 export default function App() {
+  const [isOffline, setIsOffline] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTodayEnabled, setIsTodayEnabled] = useState(true);
   const [todayApps, setTodayApps] = useState<string[]>([]);
   const [firestoreError, setFirestoreError] = useState<string | null>(null);
@@ -3527,6 +3917,22 @@ export default function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [view, setView] = useState<'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile'>('main');
   const [selectedPublisherId, setSelectedPublisherId] = useState<string | null>(null);
+
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const returnFromAuthRef = useRef<boolean>(false);
+  const previousViewRef = useRef<string>('main');
+
+  const requireAuth = (action: () => void) => {
+    if (!firebaseUser) {
+      pendingActionRef.current = action;
+      returnFromAuthRef.current = !isProfileOpen; 
+      previousViewRef.current = view;
+      setView('auth');
+      setIsProfileOpen(true);
+    } else {
+      action();
+    }
+  };
 
   // Admin States
   const [uploadName, setUploadName] = useState('');
@@ -3778,9 +4184,11 @@ export default function App() {
     async function testConnection() {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
+        setIsOffline(false);
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
+        if(error instanceof Error && error.message.includes('offline')) {
           console.error("Please check your Firebase configuration. ");
+          setIsOffline(true);
           setFirestoreError('Please check your Firebase configuration. The client is offline.');
         }
       }
@@ -3828,26 +4236,28 @@ export default function App() {
   useEffect(() => {
     let unsubscribeActivities: (() => void) | undefined;
     if (isSystemPortalOpen) {
-      setIsLoadingUsers(true);
-      getDocs(collection(db, 'users')).then(snapshot => {
-        setTotalUsers(snapshot.size);
-        setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setIsLoadingUsers(false);
-      }).catch(err => {
-        console.error(err);
-        setIsLoadingUsers(false);
-      });
+      if (isAdmin) {
+        setIsLoadingUsers(true);
+        getDocs(collection(db, 'users')).then(snapshot => {
+          setTotalUsers(snapshot.size);
+          setAllUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          setIsLoadingUsers(false);
+        }).catch(err => {
+          console.error(err);
+          setIsLoadingUsers(false);
+        });
 
-      const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(10));
-      unsubscribeActivities = onSnapshot(q, (snapshot) => {
-        setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      });
+        const q = query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(10));
+        unsubscribeActivities = onSnapshot(q, (snapshot) => {
+          setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+      }
     }
 
     return () => {
       if (unsubscribeActivities) unsubscribeActivities();
     };
-  }, [isSystemPortalOpen]);
+  }, [isSystemPortalOpen, isAdmin]);
 
   useEffect(() => {
     if (isPublisherPageOpen && selectedPublisherId) {
@@ -3864,6 +4274,20 @@ export default function App() {
   }, [isPublisherPageOpen, selectedPublisherId]);
 
   useEffect(() => {
+    if (firebaseUser && pendingActionRef.current) {
+      pendingActionRef.current();
+      pendingActionRef.current = null;
+      if (returnFromAuthRef.current) {
+        setIsProfileOpen(false);
+        setView('main');
+        returnFromAuthRef.current = false;
+      } else {
+        setView(previousViewRef.current as any);
+      }
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => {
     let unsubscribeSnapshot: (() => void) | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
@@ -3871,17 +4295,26 @@ export default function App() {
         try {
           unsubscribeSnapshot = onSnapshot(doc(db, 'users', user.uid), (userDoc) => {
             if (userDoc.exists()) {
-              setUserProfile(userDoc.data() as UserProfile);
+              const profile = userDoc.data() as UserProfile;
+              setUserProfile(profile);
+              if (profile.purchasedAppIds) {
+                setPurchasedAppIds(new Set(profile.purchasedAppIds));
+              } else {
+                setPurchasedAppIds(new Set());
+              }
             } else {
               // If profile doesn't exist, create a basic one
               const newProfile: UserProfile = {
+                uid: user.uid,
                 email: user.email || '',
                 firstName: user.displayName?.split(' ')[0] || '',
                 lastName: user.displayName?.split(' ').slice(1).join(' ') || '',
                 username: '',
-                photoURL: user.photoURL || ''
+                photoURL: user.photoURL || '',
+                purchasedAppIds: []
               };
               setUserProfile(newProfile);
+              setPurchasedAppIds(new Set());
             }
           }, (error) => {
             handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
@@ -3940,6 +4373,18 @@ export default function App() {
     return true;
   }).sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
 
+  const forYouApps = apps.filter(app => {
+    if (app.status && app.status !== 'published') return false;
+    if (selectedCategory !== 'All' && app.category !== selectedCategory) return false;
+    if (activeTab === 'Games') return app.isGame;
+    if (activeTab === 'Apps') return !app.isGame;
+    return true;
+  }).sort((a, b) => {
+    const scoreA = (a.downloads || 0) + (a.favoriteCount || 0) * 10;
+    const scoreB = (b.downloads || 0) + (b.favoriteCount || 0) * 10;
+    return scoreB - scoreA;
+  }).slice(0, 6);
+
   const searchResults = apps.filter(app => {
     if (app.status && app.status !== 'published') return false;
     return app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -3965,6 +4410,21 @@ export default function App() {
           if (!forceUpdate) {
             setPurchasedAppIds(prev => new Set(prev).add(appId));
             updateDoc(doc(db, 'apps', appId), { downloads: increment(1) }).catch(console.error);
+            
+            // Persist to user profile
+            if (firebaseUser) {
+              const userRef = doc(db, 'users', firebaseUser.uid);
+              getDoc(userRef).then(snap => {
+                if (snap.exists()) {
+                  const currentPurchased = snap.data().purchasedAppIds || [];
+                  if (!currentPurchased.includes(appId)) {
+                    updateDoc(userRef, {
+                      purchasedAppIds: [...currentPurchased, appId]
+                    });
+                  }
+                }
+              });
+            }
           } else {
             // Remove from pending updates if we had a real state for it
             // For now, we just simulate the update finishing
@@ -3978,13 +4438,46 @@ export default function App() {
   };
 
   const handleGetApp = async (app: AppItem) => {
-    if (passcode || isFaceIdEnabled || isTouchIdEnabled) {
-      setAuthenticatingApp(app);
-      setIsAuthModalOpen(true);
-    } else {
-      // No security set, purchase immediately
-      startDownload(app.id);
-    }
+    requireAuth(() => {
+      if (passcode || isFaceIdEnabled || isTouchIdEnabled) {
+        setAuthenticatingApp(app);
+        setIsAuthModalOpen(true);
+      } else {
+        // No security set, purchase immediately
+        startDownload(app.id);
+      }
+    });
+  };
+
+  const toggleFavorite = async (appId: string) => {
+    requireAuth(async () => {
+      if (!auth.currentUser) return;
+      
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      const currentFavorites = userSnap.exists() ? (userSnap.data()?.favorites || []) : [];
+      const isFavorite = currentFavorites.includes(appId);
+      
+      const newFavorites = isFavorite 
+        ? currentFavorites.filter((id: string) => id !== appId)
+        : [...currentFavorites, appId];
+
+      try {
+        await updateDoc(userRef, {
+          favorites: newFavorites
+        });
+        
+        // Update favoriteCount on the app document
+        const appRef = doc(db, 'apps', appId);
+        await updateDoc(appRef, {
+          favoriteCount: increment(isFavorite ? -1 : 1)
+        });
+
+        toast.success(isFavorite ? 'Removed from favorites' : 'Added to favorites');
+      } catch (error) {
+        toast.error('Failed to update favorites');
+      }
+    });
   };
 
   const handleAuthSuccess = async () => {
@@ -3994,6 +4487,44 @@ export default function App() {
     setIsAuthModalOpen(false);
     setAuthenticatingApp(null);
   };
+
+  if (window.location.pathname === '/admin') {
+    return (
+      <div className={isDarkMode ? 'dark' : ''}>
+        {!firebaseUser ? (
+          <div className="min-h-screen bg-zinc-50 dark:bg-black text-white flex items-center justify-center p-6 text-center shadow-2xl">
+            <div className="space-y-4 max-w-sm bg-white dark:bg-zinc-900 p-8 rounded-[32px]">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <h2 className="text-xl font-bold dark:text-white text-zinc-900">Identifying Clearances...</h2>
+                <p className="text-xs text-zinc-500 font-medium pb-2">You must authenticate to access the Nexus.</p>
+                <button 
+                  onClick={async () => {
+                     try {
+                        const { signInWithPopup } = await import('firebase/auth');
+                        const { auth, googleProvider } = await import('./firebase');
+                        await signInWithPopup(auth, googleProvider);
+                     } catch (err) {
+                        console.error(err);
+                     }
+                  }}
+                  className="w-full py-4 bg-blue-500 text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all"
+                >Sign In with Google
+                </button>
+                <button 
+                  onClick={() => window.location.href = '/'} 
+                  className="w-full py-4 mt-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-2xl font-bold uppercase tracking-widest text-xs hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                >Abort & Return
+                </button>
+            </div>
+          </div>
+        ) : firebaseUser.email === 'jessesrek@gmail.com' ? (
+          <SuperAdminDashboard /> 
+        ) : (
+          <UnauthorizedAdmin firebaseUser={firebaseUser} userProfile={userProfile} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -4026,12 +4557,30 @@ export default function App() {
           </div>
         </div>
       ) : (
-        <div className={`min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white transition-colors duration-500 ${isSearchPageOpen ? 'overflow-hidden' : ''}`}>
-        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} isTodayEnabled={isTodayEnabled} />
+        <>
+          {isOffline && <OfflineDialog onReload={() => window.location.reload()} />}
+          <AnimatePresence>
+          {isChatOpen && (
+            <ChatRoom 
+              user={userProfile} 
+              onLogin={() => {
+                requireAuth(() => {
+                  setIsChatOpen(true);
+                });
+              }} 
+              onClose={() => setIsChatOpen(false)} 
+            />
+          )}
+        </AnimatePresence>
+
+        <div className={`min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-white transition-colors duration-500 ${isSearchPageOpen || isChatOpen ? 'overflow-hidden' : ''}`}>
+        {!isSearchPageOpen && !isPublisherPageOpen && (
+          <Navigation activeTab={activeTab} setActiveTab={setActiveTab} isTodayEnabled={isTodayEnabled} />
+        )}
         
         <div className="flex flex-col min-h-screen">
           <AnimatePresence>
-            {!isSearchPageOpen && (
+            {!isSearchPageOpen && !isPublisherPageOpen && (
               <motion.header 
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
@@ -4104,40 +4653,78 @@ export default function App() {
               <div className="flex items-center gap-4">
                 <button 
                   onClick={() => setIsPublisherPageOpen(false)}
-                  className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors text-blue-500"
+                  className="p-3 -ml-3 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-blue-500 hover:scale-110 active:scale-95"
                 >
-                  <ChevronLeft className="w-8 h-8" />
+                  <ChevronLeft className="w-10 h-10" />
                 </button>
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Publisher</h1>
+                <div className="flex-1">
+                  <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight">Publisher Profile</h1>
+                  <p className="text-zinc-500 font-medium">Viewing public portfolio</p>
+                </div>
               </div>
 
               {isLoadingPublisher ? (
-                <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                <div className="flex flex-col items-center justify-center py-32 space-y-4">
                   <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                  <p className="text-zinc-500 font-medium tracking-wide">Loading profile...</p>
+                  <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-xs">Accessing Identity...</p>
                 </div>
               ) : selectedPublisher ? (
-                <div className="space-y-10">
-                  {/* Publisher Info */}
-                  <div className="flex flex-col items-center justify-center p-8 bg-zinc-100 dark:bg-zinc-900 rounded-3xl space-y-4 shadow-sm border border-zinc-100 dark:border-zinc-800">
-                    <div className="w-24 h-24 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden border-4 border-white dark:border-zinc-950 shadow-xl">
-                      {selectedPublisher.photoURL ? (
-                        <img src={selectedPublisher.photoURL} alt="Publisher" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl">👤</div>
-                      )}
+                <div className="space-y-12">
+                  {/* Publisher Info & Stats */}
+                  <div className="bg-white dark:bg-zinc-900 rounded-[48px] p-10 shadow-xl shadow-black/5 border border-zinc-100 dark:border-zinc-800 space-y-10">
+                    <div className="flex flex-col items-center justify-center space-y-6">
+                      <div className="relative group">
+                        <div className="absolute -inset-4 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all duration-500" />
+                        <div className="w-32 h-32 rounded-[42px] bg-zinc-100 dark:bg-zinc-800 relative z-10 overflow-hidden border-4 border-white dark:border-zinc-900 shadow-2xl transform group-hover:rotate-3 transition-transform duration-500">
+                          {selectedPublisher.photoURL ? (
+                            <img src={selectedPublisher.photoURL} alt="Publisher" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-5xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-black">
+                              {(selectedPublisher.firstName?.[0] || 'P').toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <h2 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
+                          {selectedPublisher.firstName} {selectedPublisher.lastName}
+                        </h2>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-blue-500 font-black">@{selectedPublisher.username || 'visionary'}</span>
+                          <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                          <span className="text-zinc-400 font-medium">Joined {selectedPublisher.createdAt ? new Date(selectedPublisher.createdAt).toLocaleDateString() : 'recently'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-zinc-900 dark:text-white">
-                        {selectedPublisher.firstName} {selectedPublisher.lastName}
-                      </h2>
-                      <p className="text-zinc-500 font-medium">{selectedPublisher.username || 'publisher'}</p>
+
+                    <div className="grid grid-cols-3 gap-6 pt-10 border-t border-zinc-100 dark:border-zinc-800/50">
+                      <div className="text-center space-y-1">
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Apps</p>
+                        <p className="text-3xl font-black text-zinc-900 dark:text-white">
+                          {apps.filter(app => app.publisherId === selectedPublisherId).length}
+                        </p>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Downloads</p>
+                        <p className="text-3xl font-black text-zinc-900 dark:text-white">
+                          {apps.filter(app => app.publisherId === selectedPublisherId).reduce((sum, app) => sum + (app.downloads || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em]">Saved</p>
+                        <p className="text-3xl font-black text-zinc-900 dark:text-white">
+                          {apps.filter(app => app.publisherId === selectedPublisherId).reduce((sum, app) => sum + (app.favoriteCount || 0), 0)}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Publisher's Apps */}
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white">Apps & Games</h3>
+                  <div className="space-y-8">
+                    <div className="flex items-center justify-between px-4">
+                      <h3 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">Software Collection</h3>
+                      <p className="text-sm font-bold text-zinc-400">{apps.filter(app => app.publisherId === selectedPublisherId).length} assets</p>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
                       {apps.filter(app => app.publisherId === selectedPublisherId).length > 0 ? (
                         apps.filter(app => app.publisherId === selectedPublisherId).map(app => (
@@ -4277,6 +4864,50 @@ export default function App() {
               </div>
 
               <div className="space-y-6">
+                {userProfile?.favorites && userProfile.favorites.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Your Favorite {activeTab}</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
+                      {apps
+                        .filter(app => userProfile.favorites!.includes(app.id))
+                        .filter(app => activeTab === 'Games' ? app.isGame : !app.isGame)
+                        .filter(app => selectedCategory === 'All' || app.category === selectedCategory)
+                        .map(app => (
+                          <PlayStoreCard 
+                            key={app.id} 
+                            app={app} 
+                            onPreview={(app) => {
+                              setSelectedApp(app);
+                              setIsPreviewOpen(true);
+                            }}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {forYouApps.length > 0 && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight">For You</h2>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
+                      {forYouApps.map(app => (
+                        <PlayStoreCard 
+                          key={app.id} 
+                          app={app} 
+                          onPreview={(app) => {
+                            setSelectedApp(app);
+                            setIsPreviewOpen(true);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Recommended for you</h2>
                 </div>
@@ -4334,6 +4965,8 @@ export default function App() {
           setIsPreviewOpen(false);
           setIsPublisherPageOpen(true);
         }}
+        onToggleFavorite={toggleFavorite}
+        onRequireAuth={requireAuth}
       />
 
       <ProfileSheet 
@@ -4371,6 +5004,9 @@ export default function App() {
         setIsPreviewOpen={setIsPreviewOpen}
         setApps={setApps}
         setIsSystemPortalOpen={setIsSystemPortalOpen}
+        setIsAuthModalOpen={setIsAuthModalOpen}
+        setIsChatOpen={setIsChatOpen}
+        onRequireAuth={requireAuth}
       />
 
       {/* Full Screen Search Page */}
@@ -4440,9 +5076,9 @@ export default function App() {
                 ) : (
                   <div className="space-y-6">
                     <div className="space-y-4">
-                      <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Trending Searches</h2>
+                      <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-500">Trending Categories</h2>
                       <div className="flex flex-wrap gap-2">
-                        {['Action Games', 'Productivity', 'Photo Editor', 'Social Media', 'Fitness'].map(tag => (
+                        {['Action', 'Productivity', 'RPG', 'Photo & Video', 'Health & Fitness', 'Simulation', 'Social', 'Education', 'Entertainment'].map(tag => (
                           <button 
                             key={tag}
                             onClick={() => setSearchQuery(tag)}
@@ -4477,7 +5113,8 @@ export default function App() {
       </AnimatePresence>
         </div>
       </div>
-      )}
+    </>
+  )}
       <AuthModal 
         isOpen={isAuthModalOpen}
         onClose={() => {
@@ -4551,6 +5188,14 @@ export default function App() {
         appToDelete={appToDelete}
         setAppToDelete={setAppToDelete}
         isResettingDatabase={isResettingDatabase}
+        isChatOpen={isChatOpen}
+        setIsChatOpen={setIsChatOpen}
+        setIsAuthModalOpen={setIsAuthModalOpen}
+        purchasedAppIds={purchasedAppIds}
+        view={view}
+        setView={setView}
+        selectedPublisherId={selectedPublisherId}
+        setSelectedPublisherId={setSelectedPublisherId}
       />
     </div>
   );
