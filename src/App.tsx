@@ -908,7 +908,7 @@ const PreviewPage: React.FC<{
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-0 z-[60] bg-white dark:bg-zinc-950 flex flex-col"
+          className="fixed inset-0 z-[70] bg-white dark:bg-zinc-950 flex flex-col"
         >
           {/* Header */}
           <div className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-900">
@@ -1058,13 +1058,13 @@ const PreviewPage: React.FC<{
                 <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6 no-scrollbar snap-x">
                   {app.screenshots && app.screenshots.length > 0 ? (
                     app.screenshots.map((url, i) => (
-                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-black overflow-hidden shadow-lg snap-center">
-                        <img src={url} alt={`Screenshot ${i + 1}`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      <div key={i} className="flex-shrink-0 h-[400px] md:h-[500px] rounded-2xl md:rounded-3xl overflow-hidden shadow-lg snap-center border border-black/5 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900">
+                        <img src={url} alt={`Screenshot ${i + 1}`} className="h-full w-auto object-cover" referrerPolicy="no-referrer" />
                       </div>
                     ))
                   ) : (
                     [1, 2, 3].map(i => (
-                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-700 snap-center">
+                      <div key={i} className="flex-shrink-0 w-[225px] md:w-[280px] h-[400px] md:h-[500px] rounded-2xl md:rounded-3xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-700 snap-center">
                         <p className="text-zinc-400 text-sm">Screenshot {i}</p>
                       </div>
                     ))
@@ -2386,8 +2386,8 @@ const ProfileSheet: React.FC<{
   setIsTodayEnabled: (val: boolean) => void;
   todayApps: string[];
   setTodayApps: (apps: string[]) => void;
-  view: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile';
-  setView: (view: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile') => void;
+  view: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'credits' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile';
+  setView: (view: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'credits' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile') => void;
   initialView?: 'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile';
   selectedPublisherId: string | null;
   setSelectedPublisherId: (id: string | null) => void;
@@ -2900,6 +2900,7 @@ const ProfileSheet: React.FC<{
                           { icon: <Settings className="w-5 h-5 text-zinc-500" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).settings, view: 'settings' as const },
                           { icon: <ShieldCheck className="w-5 h-5 text-blue-400" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).privacy, view: 'privacy' as const },
                           { icon: <HelpCircle className="w-5 h-5 text-zinc-400" />, label: (TRANSLATIONS[language] || TRANSLATIONS.English).support, view: 'support' as const },
+                          { icon: <Star className="w-5 h-5 text-amber-500" />, label: "Credits", view: 'credits' as const },
                         ].map((item, i) => (
                           <button 
                             key={i} 
@@ -3811,6 +3812,96 @@ const ProfileSheet: React.FC<{
                   </div>
                 </motion.div>
               )}
+
+              {view === 'credits' && (
+                <motion.div 
+                  key="credits"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-black"
+                >
+                  <div className="flex items-center justify-between px-6 py-4 md:py-6 mb-4 md:mb-8 bg-zinc-50/80 dark:bg-black/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50 sticky top-0 z-20">
+                    <div className="flex items-center gap-3">
+                      <button 
+                         onClick={() => setView('main')}
+                         className="p-2 -ml-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center text-amber-500"
+                      >
+                         <ChevronLeft className="w-8 h-8" />
+                      </button>
+                      <h2 className="text-2xl md:text-3xl font-extrabold text-amber-500 tracking-tight">Credits</h2>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto px-6 pb-12 space-y-8 no-scrollbar" {...getScrollProps('credits')}>
+                     <div className="text-center space-y-4">
+                       <div className="w-32 h-32 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                         <Star className="w-16 h-16 text-amber-500 animate-[spin_10s_linear_infinite]" />
+                       </div>
+                       <div>
+                         <h3 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight">Developer</h3>
+                         <p className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500 mt-2">Jesse Srek</p>
+                       </div>
+                     </div>
+
+                     <div className="grid grid-cols-1 gap-4">
+                       <motion.button 
+                         whileHover={{ scale: 1.02 }}
+                         whileTap={{ scale: 0.98 }}
+                         onClick={() => window.open('https://instagram.com/its_crazydev', '_blank')}
+                         className="flex items-center gap-6 p-6 rounded-[2rem] bg-gradient-to-br from-pink-500/10 to-orange-500/10 border border-pink-500/20 shadow-lg relative overflow-hidden group"
+                       >
+                         <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-orange-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500" />
+                         <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 shadow-pink-500/30 transition-all duration-300">
+                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-white"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+                         </div>
+                         <div className="flex-1 text-left">
+                           <h4 className="text-xl font-bold text-zinc-900 dark:text-white">Instagram</h4>
+                           <p className="text-sm font-bold text-pink-500">@its_crazydev</p>
+                         </div>
+                         <ChevronRight className="w-6 h-6 text-pink-500/50 group-hover:text-pink-500 transition-colors group-hover:translate-x-1" />
+                       </motion.button>
+
+                       <motion.button 
+                         whileHover={{ scale: 1.02 }}
+                         whileTap={{ scale: 0.98 }}
+                         onClick={() => window.open('https://t.me/jesse_pro', '_blank')}
+                         className="flex items-center gap-6 p-6 rounded-[2rem] bg-blue-500/5 border border-blue-500/20 shadow-lg relative overflow-hidden group"
+                       >
+                         <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-5 transition-opacity duration-500" />
+                         <div className="w-16 h-16 rounded-2xl bg-[#0088cc] flex items-center justify-center shadow-lg group-hover:scale-110 shadow-[#0088cc]/30 transition-all duration-300">
+                           <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-white ml-[-2px] mt-[2px]"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.623 4.823-4.35c.132-.132-.031-.22-.205-.098l-5.96 3.75-2.58-.808c-.56-.176-.575-.568.118-.84l10.05-3.876c.465-.181.878.077.72 1.545z"/></svg>
+                         </div>
+                         <div className="flex-1 text-left">
+                           <h4 className="text-xl font-bold text-zinc-900 dark:text-white">Telegram</h4>
+                           <p className="text-sm font-bold text-[#0088cc]">t.me/jesse_pro</p>
+                         </div>
+                         <ChevronRight className="w-6 h-6 text-[#0088cc]/50 group-hover:text-[#0088cc] transition-colors group-hover:translate-x-1" />
+                       </motion.button>
+
+                       <motion.button 
+                         whileHover={{ scale: 1.02 }}
+                         whileTap={{ scale: 0.98 }}
+                         onClick={() => {
+                            const message = encodeURIComponent('Hey there i am from Vision cloud store and found ur the developer...');
+                            window.open(`https://wa.me/256789109035?text=${message}`, '_blank');
+                         }}
+                         className="flex items-center gap-6 p-6 rounded-[2rem] bg-[#25D366]/5 border border-[#25D366]/20 shadow-lg relative overflow-hidden group"
+                       >
+                         <div className="absolute inset-0 bg-[#25D366] opacity-0 group-hover:opacity-5 transition-opacity duration-500" />
+                         <div className="w-16 h-16 rounded-2xl bg-[#25D366] flex items-center justify-center shadow-lg group-hover:scale-110 shadow-[#25D366]/30 transition-all duration-300">
+                           <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+                         </div>
+                         <div className="flex-1 text-left">
+                           <h4 className="text-xl font-bold text-zinc-900 dark:text-white">WhatsApp</h4>
+                           <p className="text-sm font-bold text-[#25D366]">+256 789 109 035</p>
+                         </div>
+                         <ChevronRight className="w-6 h-6 text-[#25D366]/50 group-hover:text-[#25D366] transition-colors group-hover:translate-x-1" />
+                       </motion.button>
+                     </div>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
           </motion.div>
         </>
@@ -3908,12 +3999,28 @@ export default function App() {
       else if (/mobile/i.test(ua)) device = 'Web';
       
       const dateString = new Date().toISOString().split('T')[0];
-      addDoc(collection(db, 'analytics'), {
-        type: 'visit',
-        device: device,
-        date: dateString,
-        timestamp: Date.now()
-      }).catch(console.error);
+      
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+           addDoc(collection(db, 'analytics'), {
+             type: 'visit',
+             device: device,
+             date: dateString,
+             timestamp: Date.now(),
+             country: data.country_name || 'Unknown',
+             city: data.city || 'Unknown'
+           }).catch(console.error);
+        })
+        .catch(() => {
+           addDoc(collection(db, 'analytics'), {
+             type: 'visit',
+             device: device,
+             date: dateString,
+             timestamp: Date.now(),
+             country: 'Unknown'
+           }).catch(console.error);
+        });
     }
   }, []);
 
@@ -3946,7 +4053,7 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [view, setView] = useState<'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile'>('main');
+  const [view, setView] = useState<'main' | 'settings' | 'purchased' | 'subscriptions' | 'privacy' | 'support' | 'credits' | 'edit-profile' | 'language' | 'faceid-passcode' | 'set-passcode' | 'auth' | 'admin' | 'publisher-profile'>('main');
   const [selectedPublisherId, setSelectedPublisherId] = useState<string | null>(null);
 
   const pendingActionRef = useRef<(() => void) | null>(null);
@@ -5185,8 +5292,16 @@ export default function App() {
                     placeholder="Games, Apps, Stories and More"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-12 pl-10 pr-4 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                    className="w-full h-12 pl-10 pr-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                   />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

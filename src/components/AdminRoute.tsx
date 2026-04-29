@@ -88,6 +88,7 @@ export const SuperAdminDashboard = () => {
   const [stats, setStats] = useState({ users: 0, apps: 0, downloads: 0, activities: [] as any[], userList: [] as any[]});
   const [weeklyData, setWeeklyData] = useState(mockWeeklyData);
   const [deviceData, setDeviceData] = useState(mockDeviceData);
+  const [locationData, setLocationData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -119,6 +120,7 @@ export const SuperAdminDashboard = () => {
         });
 
         const devices: Record<string, number> = { 'iOS': 0, 'Android': 0, 'Web': 0, 'Desktop': 0 };
+        const locations: Record<string, number> = {};
         
         let hasHits = false;
         analyticsSnap.docs.forEach((doc: any) => {
@@ -132,6 +134,9 @@ export const SuperAdminDashboard = () => {
           if (data.type === 'visit' && data.device) {
             if (devices[data.device] !== undefined) devices[data.device] += 1;
           }
+          if (data.type === 'visit' && data.country && data.country !== 'Unknown') {
+            locations[data.country] = (locations[data.country] || 0) + 1;
+          }
         });
         
         if (hasHits) {
@@ -140,6 +145,11 @@ export const SuperAdminDashboard = () => {
           if (computedDeviceData.length > 0) {
             setDeviceData(computedDeviceData);
           }
+          const computedLocs = Object.entries(locations)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5); // top 5
+          setLocationData(computedLocs);
         }
       }
     };
@@ -359,19 +369,55 @@ export const SuperAdminDashboard = () => {
               {stats.activities.length === 0 ? (
                  <p className="text-zinc-500 italic p-4 text-center">No recent physical events detected.</p>
               ) : (
-                stats.activities.map((act, i) => (
-                  <div key={i} className="bg-black/40 p-4 rounded-2xl flex gap-4">
-                    <div className="flex flex-col items-center gap-2 pt-1">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                      {i < stats.activities.length - 1 && <div className="w-px h-8 bg-zinc-800" />}
+                stats.activities.map((act, i) => {
+                  let dotColor = "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]";
+                  if (act.type === 'user_login') dotColor = "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]";
+                  else if (act.type === 'user_logout') dotColor = "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]";
+                  else if (act.type?.includes('system')) dotColor = "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]";
+                  else if (act.type?.includes('delete')) dotColor = "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]";
+
+                  return (
+                    <div key={i} className="bg-black/40 p-4 rounded-2xl flex gap-4">
+                      <div className="flex flex-col items-center gap-2 pt-1">
+                        <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+                        {i < stats.activities.length - 1 && <div className="w-px h-8 bg-zinc-800" />}
+                      </div>
+                      <div className="flex-1 pb-2">
+                        <p className="text-sm font-medium leading-snug">{act.userName || 'System'}</p>
+                        <p className="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-2">
+                          <span className="opacity-50 uppercase text-[9px] mr-2">{act.type}</span>
+                          {act.message}
+                        </p>
+                        <p className="text-[10px] font-bold text-zinc-600 mt-2 uppercase tracking-widest flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {new Date(act.timestamp).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 pb-2">
-                      <p className="text-sm font-medium leading-snug">{act.userName || 'System'}</p>
-                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-2">{act.message}</p>
-                      <p className="text-[10px] font-bold text-zinc-600 mt-2 uppercase tracking-widest flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {new Date(act.timestamp).toLocaleString()}
-                      </p>
-                    </div>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+           <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-zinc-900/50 rounded-[32px] p-6 md:p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden"
+          >
+            <div className="flex items-center gap-3 mb-6 relative z-10">
+              <Globe className="w-6 h-6 text-indigo-400" />
+              <h2 className="text-xl font-bold">Global Presence</h2>
+            </div>
+            <div className="space-y-4 relative z-10">
+              {locationData.length === 0 ? (
+                <p className="text-zinc-500 italic p-4 text-center">Awaiting geo-spatial telemetry...</p>
+              ) : (
+                locationData.map((loc, i) => (
+                  <div key={loc.name} className="flex items-center justify-between bg-black/30 p-3 rounded-2xl">
+                     <span className="font-bold text-zinc-300">{loc.name}</span>
+                     <span className="text-indigo-400 font-mono text-sm">{loc.value} sessions</span>
                   </div>
                 ))
               )}
