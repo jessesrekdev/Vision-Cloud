@@ -1,8 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ArrowLeft, ShieldAlert, Activity, Users, Database, Globe, Server, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Lock, ArrowLeft, ShieldAlert, Activity, Users, Database, Globe, Server, TrendingUp, ShieldCheck, Download, CheckCircle, Clock } from 'lucide-react';
 import { collection, query, limit, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+
+const mockWeeklyData = [
+  { name: 'Mon', visits: 4000, downloads: 2400 },
+  { name: 'Tue', visits: 3000, downloads: 1398 },
+  { name: 'Wed', visits: 2000, downloads: 9800 },
+  { name: 'Thu', visits: 2780, downloads: 3908 },
+  { name: 'Fri', visits: 1890, downloads: 4800 },
+  { name: 'Sat', visits: 2390, downloads: 3800 },
+  { name: 'Sun', visits: 3490, downloads: 4300 },
+];
+
+const mockDeviceData = [
+  { name: 'iOS', value: 400 },
+  { name: 'Android', value: 300 },
+  { name: 'Web', value: 300 },
+  { name: 'Desktop', value: 200 },
+];
+
+const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f43f5e'];
 
 export const UnauthorizedAdmin = ({ userProfile, firebaseUser }: any) => {
   return (
@@ -65,13 +85,16 @@ export const UnauthorizedAdmin = ({ userProfile, firebaseUser }: any) => {
 };
 
 export const SuperAdminDashboard = () => {
-  const [stats, setStats] = useState({ users: 0, apps: 0, downloads: 0, activities: [] as any[]});
+  const [stats, setStats] = useState({ users: 0, apps: 0, downloads: 0, activities: [] as any[], userList: [] as any[]});
+  const [weeklyData, setWeeklyData] = useState(mockWeeklyData);
+  const [deviceData, setDeviceData] = useState(mockDeviceData);
 
   useEffect(() => {
     const fetchData = async () => {
       const usersSnap = await getDocs(collection(db, 'users'));
       const appsSnap = await getDocs(collection(db, 'apps'));
-      const activitiesSnap = await getDocs(query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(10)));
+      const activitiesSnap = await getDocs(query(collection(db, 'activities'), orderBy('timestamp', 'desc'), limit(20)));
+      const analyticsSnap = await getDocs(query(collection(db, 'analytics'), orderBy('timestamp', 'desc'), limit(1000))).catch(() => ({ docs: [] }));
       
       const totalDownloads = appsSnap.docs.reduce((acc, doc) => acc + (doc.data().downloads || 0), 0);
 
@@ -79,8 +102,46 @@ export const SuperAdminDashboard = () => {
         users: usersSnap.size,
         apps: appsSnap.size,
         downloads: totalDownloads,
-        activities: activitiesSnap.docs.map(d => d.data())
+        activities: activitiesSnap.docs.map(d => d.data()),
+        userList: usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       });
+      
+      if (analyticsSnap.docs && analyticsSnap.docs.length > 0) {
+        const last7Days = Array.from({length: 7}).map((_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (6 - i));
+          return {
+            name: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
+            dateString: d.toISOString().split('T')[0],
+            visits: 0,
+            downloads: 0
+          };
+        });
+
+        const devices: Record<string, number> = { 'iOS': 0, 'Android': 0, 'Web': 0, 'Desktop': 0 };
+        
+        let hasHits = false;
+        analyticsSnap.docs.forEach((doc: any) => {
+          const data = doc.data();
+          hasHits = true;
+          const dayMatch = last7Days.find(d => d.dateString === data.date);
+          if (dayMatch) {
+            if (data.type === 'visit') dayMatch.visits += 1;
+            if (data.type === 'download') dayMatch.downloads += 1;
+          }
+          if (data.type === 'visit' && data.device) {
+            if (devices[data.device] !== undefined) devices[data.device] += 1;
+          }
+        });
+        
+        if (hasHits) {
+          setWeeklyData(last7Days);
+          const computedDeviceData = Object.entries(devices).map(([name, value]) => ({ name, value })).filter(d => d.value > 0);
+          if (computedDeviceData.length > 0) {
+            setDeviceData(computedDeviceData);
+          }
+        }
+      }
     };
     fetchData();
   }, []);
@@ -145,63 +206,176 @@ export const SuperAdminDashboard = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-zinc-900/50 rounded-[32px] p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl"
+            className="lg:col-span-2 bg-zinc-900/50 rounded-[32px] p-6 md:p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden"
           >
-            <div className="flex items-center gap-3 mb-8">
-              <TrendingUp className="w-6 h-6 text-zinc-400" />
-              <h2 className="text-xl font-bold">Recent System Actions</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-6 h-6 text-emerald-400" />
+                <h2 className="text-xl font-bold">Network Traffic / Scales Matrix</h2>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                  <div className="w-3 h-3 rounded-full border-[2px] border-emerald-500 bg-emerald-500/20" /> Visits
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                  <div className="w-3 h-3 rounded-full border-[2px] border-emerald-500 bg-transparent" /> Downloads
+                </div>
+              </div>
             </div>
-            <div className="space-y-4">
-              {stats.activities.length === 0 ? (
-                 <p className="text-zinc-500 italic p-4 text-center">No recent physical events detected.</p>
-              ) : (
-                stats.activities.map((act, i) => (
-                  <div key={i} className="bg-black/40 p-4 rounded-2xl flex items-center gap-4">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{act.message}</p>
-                      <p className="text-xs text-zinc-500 mt-1">{new Date(act.timestamp).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+            
+            <div className="h-[300px] w-full relative z-10">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                  <XAxis dataKey="name" stroke="#ffffff50" tick={{ fill: '#ffffff50', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#ffffff50" tick={{ fill: '#ffffff50', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: '#18181b', borderRadius: '16px', border: '1px solid #27272a' }}
+                    itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                  <Area type="monotone" dataKey="visits" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorVisits)" />
+                  <Line type="monotone" dataKey="downloads" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" fill="none" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </motion.div>
 
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-zinc-900/50 rounded-[32px] p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl flex flex-col justify-center items-center relative overflow-hidden"
+            className="bg-zinc-900/50 rounded-[32px] p-6 md:p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl flex flex-col justify-center items-center relative overflow-hidden"
           >
-            <div className="absolute inset-0 pointer-events-none">
-               <motion.div 
-                  animate={{ y: [0, 20, 0] }} 
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-full h-full flex items-center justify-center opacity-10"
-               >
-                 <ShieldCheck className="w-[120%] h-[120%]" />
-               </motion.div>
+            <div className="flex items-center gap-3 mb-6 w-full relative z-10">
+              <ShieldCheck className="w-6 h-6 text-blue-400" />
+              <h2 className="text-xl font-bold">Device Signatures</h2>
             </div>
-            <h2 className="text-xl font-bold mb-4 relative z-10 flex items-center gap-3"><Activity className="w-6 h-6 text-blue-400" /> Physics / Scales Matrix</h2>
-            <div className="w-64 h-64 border-4 border-dashed border-zinc-700 rounded-full relative z-10 flex flex-col items-center justify-center overflow-hidden">
-               <motion.div 
-                  animate={{ rotate: 360, scale: [1, 1.2, 1] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                  className="w-32 h-32 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-full blur-xl opacity-50 absolute"
-               />
-               <motion.div 
-                  animate={{ scaleY: [1, 0.5, 1], scaleX: [1, 1.5, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-16 h-16 bg-white rounded-2xl z-20 shadow-2xl"
-               />
+            
+            <div className="h-[250px] w-full relative z-10">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={deviceData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {deviceData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    contentStyle={{ backgroundColor: '#18181b', borderRadius: '16px', border: '1px solid #27272a' }}
+                    itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-            <p className="mt-8 text-center text-zinc-400 font-medium relative z-10 max-w-sm">
-              Core systems synchronized. All dimensional matrices are stable.
-            </p>
+            
+            <div className="grid grid-cols-2 gap-4 w-full mt-4 relative z-10">
+              {deviceData.map((device, i) => (
+                <div key={device.name} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                  <span className="text-sm font-medium text-zinc-300">{device.name}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="lg:col-span-2 bg-zinc-900/50 rounded-[32px] p-6 md:p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Users className="w-6 h-6 text-purple-400" />
+              <h2 className="text-xl font-bold">Account Registry</h2>
+            </div>
+            <div className="flex-1 overflow-x-auto">
+              <div className="min-w-[600px]">
+                <div className="grid grid-cols-12 gap-4 pb-4 border-b border-zinc-800 text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-4">
+                  <div className="col-span-4">User Identity</div>
+                  <div className="col-span-3">Email</div>
+                  <div className="col-span-2">Role</div>
+                  <div className="col-span-3">Joined / Last Active</div>
+                </div>
+                <div className="divide-y divide-zinc-800/50 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {stats.userList.length === 0 ? (
+                    <p className="text-zinc-500 italic p-8 text-center">No structural user data found.</p>
+                  ) : (
+                    stats.userList.map((user, i) => (
+                      <div key={user.id || i} className="grid grid-cols-12 gap-4 py-4 items-center pl-4 hover:bg-white/5 transition-colors rounded-xl">
+                        <div className="col-span-4 flex items-center gap-3">
+                          <img src={user.photoURL || `https://api.dicebear.com/7.x/notionists/svg?seed=${user.firstName}`} alt="" className="w-10 h-10 rounded-full border border-zinc-700 object-cover" />
+                          <div>
+                            <p className="font-bold text-sm">{user.firstName} {user.lastName}</p>
+                            <p className="text-xs text-zinc-500">@{user.username || 'unknown'}</p>
+                          </div>
+                        </div>
+                        <div className="col-span-3 text-sm text-zinc-400 truncate pr-2">
+                          {user.email}
+                        </div>
+                        <div className="col-span-2">
+                           <span className={`text-[10px] uppercase tracking-widest font-black px-3 py-1 rounded-full ${user.role === 'admin' ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                             {user.role || 'user'}
+                           </span>
+                        </div>
+                        <div className="col-span-3 text-xs text-zinc-500 font-medium">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-zinc-900/50 rounded-[32px] p-6 md:p-8 border border-zinc-800/50 backdrop-blur-xl shadow-2xl flex flex-col h-full"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Activity className="w-6 h-6 text-zinc-400" />
+              <h2 className="text-xl font-bold">Activity Feed</h2>
+            </div>
+            <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar flex-1">
+              {stats.activities.length === 0 ? (
+                 <p className="text-zinc-500 italic p-4 text-center">No recent physical events detected.</p>
+              ) : (
+                stats.activities.map((act, i) => (
+                  <div key={i} className="bg-black/40 p-4 rounded-2xl flex gap-4">
+                    <div className="flex flex-col items-center gap-2 pt-1">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                      {i < stats.activities.length - 1 && <div className="w-px h-8 bg-zinc-800" />}
+                    </div>
+                    <div className="flex-1 pb-2">
+                      <p className="text-sm font-medium leading-snug">{act.userName || 'System'}</p>
+                      <p className="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-2">{act.message}</p>
+                      <p className="text-[10px] font-bold text-zinc-600 mt-2 uppercase tracking-widest flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {new Date(act.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </motion.div>
         </div>
       </div>

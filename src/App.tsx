@@ -1053,19 +1053,18 @@ const PreviewPage: React.FC<{
                 </div>
               </div>
 
-              {/* Screenshots */}
               <div className="space-y-4">
                 <h3 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Preview</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6 no-scrollbar">
+                <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6 no-scrollbar snap-x">
                   {app.screenshots && app.screenshots.length > 0 ? (
                     app.screenshots.map((url, i) => (
-                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-zinc-100 dark:bg-zinc-900 overflow-hidden border border-black/5 dark:border-white/5 shadow-lg">
-                        <img src={url} alt={`Screenshot ${i + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-black overflow-hidden shadow-lg snap-center">
+                        <img src={url} alt={`Screenshot ${i + 1}`} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                       </div>
                     ))
                   ) : (
                     [1, 2, 3].map(i => (
-                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-700">
+                      <div key={i} className="flex-shrink-0 w-64 aspect-[9/16] rounded-3xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-dashed border-zinc-300 dark:border-zinc-700 snap-center">
                         <p className="text-zinc-400 text-sm">Screenshot {i}</p>
                       </div>
                     ))
@@ -1839,12 +1838,9 @@ const SystemPortal: React.FC<{
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-6">
                            <div>
-                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Application Icon</label>
-                             <div className="flex gap-4">
-                               <div className="w-24 h-24 rounded-3xl bg-zinc-50 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                                 {editingApp.iconUrl ? <img src={editingApp.iconUrl} className="w-full h-full object-cover" /> : null}
-                               </div>
-                               <input type="text" value={editingApp.iconUrl} onChange={(e) => setEditingApp({...editingApp, iconUrl: e.target.value})} className="flex-1 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold self-end" placeholder="Icon URL" />
+                             <p className="text-[10px] md:text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4 text-center">Application Icon</p>
+                             <div className="flex justify-center">
+                               <ImageUploader currentIconUrl={editingApp.iconUrl} onUpload={(url) => setEditingApp({...editingApp, iconUrl: url})} />
                              </div>
                            </div>
                            <div>
@@ -1854,11 +1850,10 @@ const SystemPortal: React.FC<{
                         </div>
                         <div className="space-y-6">
                            <div>
-                             <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-2 block">Hero Content</label>
-                             <div className="aspect-video rounded-3xl bg-zinc-50 dark:bg-zinc-800 overflow-hidden border border-zinc-200 dark:border-zinc-800">
-                               {editingApp.mainThumbnail ? <img src={editingApp.mainThumbnail} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-300 font-bold uppercase text-[10px]">No Thumbnail</div>}
+                             <p className="text-[10px] md:text-[11px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4 text-center">Hero Content</p>
+                             <div className="flex justify-center">
+                               <ImageUploader currentIconUrl={editingApp.mainThumbnail || ''} onUpload={(url) => setEditingApp({...editingApp, mainThumbnail: url})} />
                              </div>
-                             <input type="text" value={editingApp.mainThumbnail || ''} onChange={(e) => setEditingApp({...editingApp, mainThumbnail: e.target.value})} className="w-full mt-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border-none outline-none font-bold" placeholder="Hero URL" />
                            </div>
                         </div>
                      </div>
@@ -1886,11 +1881,28 @@ const SystemPortal: React.FC<{
                      </div>
 
                      <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800">
-                        <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block">App Screenshots</label>
+                        <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block text-center">App Screenshots</label>
                         <ScreenshotUploader initialScreenshots={editingApp.screenshots || []} onUpload={(urls) => setEditingApp({...editingApp, screenshots: urls})} />
                      </div>
 
-                     <div className="flex gap-4 pt-4">
+                     <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-[32px] md:rounded-[48px] p-6 md:p-10 border-2 border-dashed border-zinc-200 dark:border-zinc-800 space-y-6">
+                        <div className="text-center">
+                          <label className="text-[10px] font-black text-blue-500 uppercase tracking-[0.25em] block mb-2">Live Preview</label>
+                          <p className="text-xs text-zinc-500 font-medium">How your app will appear to users in the store</p>
+                        </div>
+                        
+                        <div className="flex flex-col items-center gap-10 py-4 scale-90 md:scale-100 origin-top">
+                          <div className="space-y-4 w-full max-w-[200px]">
+                            <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest text-center">Store Card</p>
+                            <PlayStoreCard 
+                              app={editingApp}
+                              onPreview={() => {}}
+                            />
+                          </div>
+                        </div>
+                     </div>
+
+                     <div className="flex gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                         <button onClick={() => setEditingApp(null)} className="flex-1 py-5 rounded-[24px] bg-zinc-100 dark:bg-zinc-800 font-black text-zinc-500 uppercase tracking-widest hover:bg-zinc-200 transition-all">Abort Config</button>
                         <button 
                           onClick={async () => {
@@ -3886,6 +3898,25 @@ const Navigation: React.FC<{ activeTab: Tab; setActiveTab: (tab: Tab) => void; i
 };
 
 export default function App() {
+  useEffect(() => {
+    if (!sessionStorage.getItem('visited')) {
+      sessionStorage.setItem('visited', 'true');
+      const ua = navigator.userAgent;
+      let device = 'Desktop';
+      if (/android/i.test(ua)) device = 'Android';
+      else if (/iphone|ipad|ipod/i.test(ua)) device = 'iOS';
+      else if (/mobile/i.test(ua)) device = 'Web';
+      
+      const dateString = new Date().toISOString().split('T')[0];
+      addDoc(collection(db, 'analytics'), {
+        type: 'visit',
+        device: device,
+        date: dateString,
+        timestamp: Date.now()
+      }).catch(console.error);
+    }
+  }, []);
+
   const [isOffline, setIsOffline] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTodayEnabled, setIsTodayEnabled] = useState(true);
@@ -3962,6 +3993,31 @@ export default function App() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
+
+  const prevUserRef = useRef<FirebaseUser | null>(null);
+
+  useEffect(() => {
+    const logAuthActivity = async (type: string, message: string, uid: string, uname: string) => {
+      try {
+        await addDoc(collection(db, 'activities'), {
+          type,
+          message,
+          timestamp: new Date().toISOString(),
+          userId: uid,
+          userName: uname
+        });
+      } catch (error) {
+        console.error('Error logging auth activity', error);
+      }
+    };
+
+    if (firebaseUser && !prevUserRef.current) {
+      logAuthActivity('user_login', 'User logged in', firebaseUser.uid, firebaseUser.displayName || firebaseUser.email || 'User');
+    } else if (!firebaseUser && prevUserRef.current) {
+      logAuthActivity('user_logout', 'User logged out', prevUserRef.current.uid, prevUserRef.current.displayName || prevUserRef.current.email || 'User');
+    }
+    prevUserRef.current = firebaseUser;
+  }, [firebaseUser]);
 
   const logActivity = async (type: string, message: string) => {
     try {
@@ -4494,6 +4550,14 @@ export default function App() {
           if (!forceUpdate) {
             setPurchasedAppIds(prev => new Set(prev).add(appId));
             updateDoc(doc(db, 'apps', appId), { downloads: increment(1) }).catch(console.error);
+            
+            const dateString = new Date().toISOString().split('T')[0];
+            addDoc(collection(db, 'analytics'), {
+              type: 'download',
+              appId: appId,
+              date: dateString,
+              timestamp: Date.now()
+            }).catch(console.error);
             
             // Persist to user profile
             if (firebaseUser) {

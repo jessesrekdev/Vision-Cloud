@@ -62,37 +62,38 @@ export const ScreenshotUploader: React.FC<{ onUpload: (urls: string[]) => void; 
             <img 
               src={url} 
               alt={`Screenshot ${index + 1}`} 
-              className="h-64 w-auto object-cover rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800"
+              className="h-64 w-auto object-contain bg-black/5 dark:bg-white/5 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex flex-col items-center justify-center gap-4">
+            <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
               <button 
                 onClick={(e) => { e.preventDefault(); removeScreenshot(index); }}
-                className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
                 title="Remove"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
-              <div className="flex gap-2">
-                {index > 0 && (
-                  <button 
-                    onClick={(e) => { e.preventDefault(); moveScreenshot(index, 'left'); }}
-                    className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-colors"
-                    title="Move Left"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                )}
-                {index < screenshots.length - 1 && (
-                  <button 
-                    onClick={(e) => { e.preventDefault(); moveScreenshot(index, 'right'); }}
-                    className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/30 transition-colors"
-                    title="Move Right"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
+            </div>
+            
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full">
+              {index > 0 && (
+                <button 
+                  onClick={(e) => { e.preventDefault(); moveScreenshot(index, 'left'); }}
+                  className="p-1.5 text-white rounded-full hover:bg-white/20 transition-colors"
+                  title="Move Left"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
+              {index < screenshots.length - 1 && (
+                <button 
+                  onClick={(e) => { e.preventDefault(); moveScreenshot(index, 'right'); }}
+                  className="p-1.5 text-white rounded-full hover:bg-white/20 transition-colors"
+                  title="Move Right"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         ))}
