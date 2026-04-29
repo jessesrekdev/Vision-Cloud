@@ -1880,6 +1880,16 @@ const SystemPortal: React.FC<{
                         ))}
                      </div>
 
+                     <div className="space-y-4">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block px-2">App Description</label>
+                        <textarea 
+                          value={editingApp.description || ''} 
+                          onChange={(e) => setEditingApp({...editingApp, description: e.target.value})} 
+                          className="w-full p-6 rounded-[32px] bg-zinc-50 dark:bg-zinc-800 font-bold border-none outline-none min-h-[160px] resize-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          placeholder="Application description (Markdown supported)..."
+                        />
+                     </div>
+
                      <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800">
                         <label className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block text-center">App Screenshots</label>
                         <ScreenshotUploader initialScreenshots={editingApp.screenshots || []} onUpload={(urls) => setEditingApp({...editingApp, screenshots: urls})} />
