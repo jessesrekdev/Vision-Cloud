@@ -3921,6 +3921,7 @@ export default function App() {
   const pendingActionRef = useRef<(() => void) | null>(null);
   const returnFromAuthRef = useRef<boolean>(false);
   const previousViewRef = useRef<string>('main');
+  const initialUrlHandledRef = useRef(false);
 
   const requireAuth = (action: () => void) => {
     if (!firebaseUser) {
@@ -4364,6 +4365,89 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  // Handle Initial Load from URL
+  useEffect(() => {
+    if (apps.length > 0 && !initialUrlHandledRef.current) {
+      initialUrlHandledRef.current = true;
+      const params = new URLSearchParams(window.location.search);
+      const appId = params.get('app');
+      const publisherId = params.get('publisher');
+
+      if (appId) {
+        const app = apps.find(a => a.id === appId);
+        if (app) {
+          setSelectedApp(app);
+          setIsPreviewOpen(true);
+        }
+      } else if (publisherId) {
+        setSelectedPublisherId(publisherId);
+        setIsPublisherPageOpen(true);
+      }
+    }
+  }, [apps]);
+
+  // Sync state to URL
+  useEffect(() => {
+    if (!initialUrlHandledRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    let shouldUpdate = false;
+
+    if (isPreviewOpen && selectedApp) {
+      if (params.get('app') !== selectedApp.id) {
+        params.set('app', selectedApp.id);
+        params.delete('publisher');
+        shouldUpdate = true;
+      }
+    } else if (isPublisherPageOpen && selectedPublisherId) {
+      if (params.get('publisher') !== selectedPublisherId) {
+        params.set('publisher', selectedPublisherId);
+        params.delete('app');
+        shouldUpdate = true;
+      }
+    } else {
+      if (params.has('app') || params.has('publisher')) {
+        params.delete('app');
+        params.delete('publisher');
+        shouldUpdate = true;
+      }
+    }
+
+    if (shouldUpdate) {
+      const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+      window.history.pushState({}, '', newUrl);
+    }
+  }, [isPreviewOpen, selectedApp, isPublisherPageOpen, selectedPublisherId]);
+
+  // Handle Browser Back/Forward
+  useEffect(() => {
+    const handlePopState = () => {
+      if (apps.length === 0) return;
+      
+      const params = new URLSearchParams(window.location.search);
+      const appId = params.get('app');
+      const publisherId = params.get('publisher');
+
+      if (appId) {
+        const app = apps.find(a => a.id === appId);
+        if (app) {
+          setSelectedApp(app);
+          setIsPreviewOpen(true);
+          setIsPublisherPageOpen(false);
+        }
+      } else if (publisherId) {
+        setSelectedPublisherId(publisherId);
+        setIsPublisherPageOpen(true);
+        setIsPreviewOpen(false);
+      } else {
+        setIsPreviewOpen(false);
+        setIsPublisherPageOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [apps]);
 
   const filteredApps = apps.filter(app => {
     if (app.status && app.status !== 'published') return false;
