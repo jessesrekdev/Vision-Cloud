@@ -1881,6 +1881,17 @@ const SystemPortal: React.FC<{
                      </div>
 
                      <div className="space-y-4">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block px-2">Download Link</label>
+                        <input 
+                          type="text" 
+                          value={editingApp.downloadUrl || ''} 
+                          onChange={(e) => setEditingApp({...editingApp, downloadUrl: e.target.value})} 
+                          className="w-full p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 font-bold outline-none border-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          placeholder="https://example.com/download-link"
+                        />
+                     </div>
+
+                     <div className="space-y-4">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block px-2">App Description</label>
                         <textarea 
                           value={editingApp.description || ''} 
